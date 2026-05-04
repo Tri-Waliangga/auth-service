@@ -1,0 +1,31 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", splines=true, pad=0.2, nodesep=0.55, ranksep=0.75];
+  node [shape=box, style="rounded,filled", fillcolor="#F7F9FC", color="#1F4E79", fontname="Arial", fontsize=10, margin=0.1];
+  edge [fontname="Arial", fontsize=9, color="#555555", arrowsize=0.7];
+
+  Controller [label="AccessTokenController\n+ request DTO validation"];
+  Service [label="TokenApplicationService\norchestrates use case"];
+  Validator [label="SnapRequestValidator\nmandatory header/body\ntimestamp drift"];
+  ClientSvc [label="ClientCredentialService\nload active client/key/scope"];
+  SigSvc [label="SignatureVerifier\nSHA256withRSA"];
+  JwtSvc [label="JwtTokenService\nissue/verify token"];
+  TokenRepo [label="AccessTokenRepository\nJPA adapter"];
+  ClientRepo [label="ApiClientRepository\nJPA adapter"];
+  AuditSvc [label="AuditService\nsignature + API logs"];
+  Mapper [label="SnapResponseMapper\nSNAP response code"];
+  DB [shape=cylinder, label="MySQL auth_db", fillcolor="#FFF8E1"];
+
+  Controller -> Service;
+  Service -> Validator;
+  Service -> ClientSvc;
+  ClientSvc -> ClientRepo;
+  Service -> SigSvc;
+  Service -> JwtSvc;
+  Service -> TokenRepo;
+  Service -> AuditSvc;
+  Service -> Mapper;
+  ClientRepo -> DB;
+  TokenRepo -> DB;
+  AuditSvc -> DB;
+}

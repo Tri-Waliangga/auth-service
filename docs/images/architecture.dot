@@ -1,0 +1,28 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", splines=true, pad=0.25, nodesep=0.7, ranksep=0.8];
+  node [shape=box, style="rounded,filled", fillcolor="#F7F9FC", color="#1F4E79", fontname="Arial", fontsize=11, margin=0.12];
+  edge [fontname="Arial", fontsize=9, color="#555555", arrowsize=0.75];
+
+  Merchant [label="Merchant / Partner\nServer-to-server"];
+  WAF [label="TLS / WAF\nIP Whitelist\nRate Limit"];
+  Gateway [label="Public API Gateway\nRoute /api/v1"];
+  Auth [label="auth-service\nSpring Boot\nSNAP Security"];
+  AuthDB [shape=cylinder, label="auth_db\nMySQL", fillcolor="#FFF8E1"];
+  Secret [label="Secret Store / Env\nJWT private key\nDB credential", fillcolor="#E8F5E9"];
+  Core [label="Core Payment Service\nJWT validation / introspection"];
+  Backoffice [label="Backoffice Admin\nClient onboarding", fillcolor="#E8EAF6"];
+  Bus [label="Event Bus / Log Pipeline\nAuth audit event", fillcolor="#F3E5F5"];
+  Obs [label="Observability\nActuator, Prometheus,\nGraylog/ELK", fillcolor="#E3F2FD"];
+  DevUtil [label="Dev Utility API\nSignature generator\nnon-production only", fillcolor="#FFF3E0"];
+
+  Merchant -> WAF -> Gateway -> Auth;
+  Backoffice -> Gateway -> Auth;
+  Auth -> AuthDB;
+  Auth -> Secret [style=dashed];
+  Auth -> Bus [label="publish audit"];
+  Auth -> Obs [style=dashed];
+  Gateway -> Core [label="other payment APIs"];
+  Core -> Auth [style=dashed, label="optional introspect"];
+  DevUtil -> Auth [style=dashed, label="disabled in prod"];
+}

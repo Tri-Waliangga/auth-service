@@ -1,0 +1,28 @@
+
+digraph G {
+  graph [rankdir=TB, bgcolor="white", pad=0.25, nodesep=0.45, ranksep=0.45];
+  node [shape=box, style="rounded,filled", fillcolor="#F7F9FC", color="#1F4E79", fontname="Arial", fontsize=10, margin=0.12];
+  edge [fontname="Arial", fontsize=9, color="#555555", arrowsize=0.7];
+
+  start [shape=circle, label="Start", fillcolor="#E8F5E9"];
+  req [label="POST /api/v1/access-token/b2b\nHeaders: Content-Type, X-TIMESTAMP,\nX-CLIENT-KEY, X-SIGNATURE"];
+  format [label="Validate mandatory fields\nand timestamp format/drift"];
+  client [label="Find active client\nvalidate IP, scope, key validity"];
+  sign [label="Build stringToSign:\nclientId + '|' + timestamp"];
+  verify [label="Verify SHA256withRSA\nwith registered public key"];
+  jwt [label="Create JWT\njti, iss, sub, client_id,\nscopes, iat, exp"];
+  persist [label="Persist token metadata,\nsignature audit, API audit"];
+  ok [shape=doublecircle, label="2007300\nSuccessful", fillcolor="#E8F5E9"];
+  bad [shape=doublecircle, label="4007302\nInvalid Mandatory Field", fillcolor="#FFEBEE"];
+  unauth [shape=doublecircle, label="4017300\nUnauthorized", fillcolor="#FFEBEE"];
+  err [shape=doublecircle, label="5007300\nGeneral Error", fillcolor="#FFEBEE"];
+
+  start -> req -> format;
+  format -> bad [label="missing/invalid"];
+  format -> client;
+  client -> unauth [label="not found/inactive/IP denied"];
+  client -> sign -> verify;
+  verify -> unauth [label="invalid signature"];
+  verify -> jwt -> persist -> ok;
+  persist -> err [label="DB/infra error"];
+}

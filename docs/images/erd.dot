@@ -1,0 +1,129 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", splines=ortho, nodesep=0.45, ranksep=0.75, pad=0.2];
+  node [shape=plain, fontname="Arial"];
+  edge [fontname="Arial", fontsize=9, color="#555555", arrowsize=0.7];
+
+  merchants [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>merchants</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK</TD></TR>
+    <TR><TD ALIGN="LEFT">merchant_code, merchant_name, status</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  clients [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>api_clients</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, merchant_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">client_id UNIQUE, client_secret_hash</TD></TR>
+    <TR><TD ALIGN="LEFT">channel_id, token_ttl_seconds</TD></TR>
+    <TR><TD ALIGN="LEFT">allowed_ip_cidr, status</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  keys [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>client_public_keys</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">key_id, public_key_pem</TD></TR>
+    <TR><TD ALIGN="LEFT">algorithm, valid_from, valid_to, status</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  scopes [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>client_scopes</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">scope_code, service_code, is_active</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  tokens [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>oauth_access_tokens</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">token_jti UNIQUE, token_hash</TD></TR>
+    <TR><TD ALIGN="LEFT">token_type, scopes, issued_at, expires_at</TD></TR>
+    <TR><TD ALIGN="LEFT">revoked_at, revoke_reason</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  refresh [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>oauth_refresh_tokens</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">refresh_token_hash, customer_reference</TD></TR>
+    <TR><TD ALIGN="LEFT">issued_at, expires_at, revoked_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  authcodes [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>oauth_auth_codes</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">auth_code_hash, customer_reference</TD></TR>
+    <TR><TD ALIGN="LEFT">redirect_uri, scopes, expires_at, used_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  siglog [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>signature_audit_logs</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK NULL</TD></TR>
+    <TR><TD ALIGN="LEFT">request_id, signature_type, algorithm</TD></TR>
+    <TR><TD ALIGN="LEFT">string_to_sign_hash, validation_result</TD></TR>
+    <TR><TD ALIGN="LEFT">failure_reason, remote_ip, user_agent</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  replay [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>replay_protection_keys</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK</TD></TR>
+    <TR><TD ALIGN="LEFT">external_id, request_date, endpoint_path</TD></TR>
+    <TR><TD ALIGN="LEFT">expires_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  apilog [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>api_audit_logs</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK, api_client_id FK NULL</TD></TR>
+    <TR><TD ALIGN="LEFT">request_id, endpoint_path, http_method</TD></TR>
+    <TR><TD ALIGN="LEFT">http_status, response_code, latency_ms</TD></TR>
+    <TR><TD ALIGN="LEFT">remote_ip</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  resp [label=<
+  <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD BGCOLOR="#1F4E79"><FONT COLOR="white"><B>response_code_mappings</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT">id PK</TD></TR>
+    <TR><TD ALIGN="LEFT">category, http_status, service_code</TD></TR>
+    <TR><TD ALIGN="LEFT">case_code, response_code UNIQUE</TD></TR>
+    <TR><TD ALIGN="LEFT">response_message, description</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at, updated_at</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, updated_by</TD></TR>
+  </TABLE>>];
+
+  merchants -> clients [label="1..n"];
+  clients -> keys [label="1..n"];
+  clients -> scopes [label="1..n"];
+  clients -> tokens [label="1..n"];
+  clients -> refresh [label="1..n"];
+  clients -> authcodes [label="1..n"];
+  clients -> siglog [label="1..n"];
+  clients -> replay [label="1..n"];
+  clients -> apilog [label="0..n"];
+}
