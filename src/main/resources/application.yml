@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: ${APP_NAME:auth-service}
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:mysql://localhost:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${AUTH_DB_USERNAME:auth_service}
+    password: ${AUTH_DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${AUTH_JPA_DDL_AUTO:validate}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: ${AUTH_JPA_FORMAT_SQL:false}
+  flyway:
+    enabled: ${AUTH_FLYWAY_ENABLED:true}
+    locations: ${AUTH_FLYWAY_LOCATIONS:classpath:db/migration}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus}
+  endpoint:
+    health:
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
