@@ -43,3 +43,7 @@ Invoke-WebRequest http://localhost:3031/actuator/health -UseBasicParsing
 ```
 
 The test suite excludes live database auto-configuration so foundation checks can run without mutating local MySQL.
+
+## Local Seed Data
+
+Flyway seeds a SNAP local merchant, API client, public key, scopes, and response code mappings for Postman testing. The matching private key in the Postman environment is for local development only; the database stores only the public key.
