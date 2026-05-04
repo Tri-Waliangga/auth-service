@@ -10,6 +10,13 @@ Spring Boot auth-service foundation for SNAP security portfolio flows.
 
 ## Run Locally
 
+Copy the example environment file and adjust local credentials as needed.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d
+```
+
 Set Java 21 and database credentials through environment variables before running the app.
 
 PowerShell example:
@@ -17,16 +24,16 @@ PowerShell example:
 ```powershell
 $env:JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot"
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
-$env:AUTH_DB_URL="jdbc:mysql://localhost:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-$env:AUTH_DB_USERNAME="<mysql-username>"
-$env:AUTH_DB_PASSWORD="<mysql-password>"
+$env:AUTH_DB_URL="jdbc:mysql://localhost:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+$env:AUTH_DB_USERNAME="<mysql-username-from-env-file>"
+$env:AUTH_DB_PASSWORD="<mysql-password-from-env-file>"
 .\mvnw.cmd spring-boot:run
 ```
 
 Health check:
 
 ```powershell
-Invoke-WebRequest http://localhost:8080/actuator/health -UseBasicParsing
+Invoke-WebRequest http://localhost:3031/actuator/health -UseBasicParsing
 ```
 
 ## Test
