@@ -1,0 +1,336 @@
+{
+  "info": {
+    "_postman_id": "5eb55e80-7d9b-4e8a-9d25-authsnapprd",
+    "name": "SNAP Auth Service - Portfolio",
+    "description": "Collection untuk auth-service berbasis SNAP Keamanan. RSA signature untuk /access-token/b2b diisi melalui variable x_signature_auth atau endpoint dev utility.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Dev Utility Generate Signature Auth",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-TIMESTAMP",
+            "value": "{{x_timestamp}}"
+          },
+          {
+            "key": "X-CLIENT-KEY",
+            "value": "{{client_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"privateKeyPem\": \"{{client_private_key_pem}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/utilities/signature-auth",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "utilities",
+            "signature-auth"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date(); const pad = n => String(n).padStart(2,'0');",
+              "pm.environment.set('x_timestamp', `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}+07:00`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Signature generated', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json(); if (json.signature) pm.environment.set('x_signature_auth', json.signature);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Access Token B2B - Positive",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-TIMESTAMP",
+            "value": "{{x_timestamp}}"
+          },
+          {
+            "key": "X-CLIENT-KEY",
+            "value": "{{client_id}}"
+          },
+          {
+            "key": "X-SIGNATURE",
+            "value": "{{x_signature_auth}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"client_credentials\",\n  \"additionalInfo\": {}\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/access-token/b2b",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "access-token",
+            "b2b"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "let json = pm.response.json();",
+              "pm.test('SNAP success code', () => pm.expect(json.responseCode).to.eql('2007300'));",
+              "if (json.accessToken) pm.environment.set('access_token', json.accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Access Token B2B - Negative Invalid Signature",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-TIMESTAMP",
+            "value": "{{x_timestamp}}"
+          },
+          {
+            "key": "X-CLIENT-KEY",
+            "value": "{{client_id}}"
+          },
+          {
+            "key": "X-SIGNATURE",
+            "value": "invalid-signature"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"client_credentials\",\n  \"additionalInfo\": {}\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/access-token/b2b",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "access-token",
+            "b2b"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401 expected', () => pm.response.to.have.status(401));",
+              "let json = pm.response.json();",
+              "pm.test('Unauthorized code', () => pm.expect(json.responseCode).to.eql('4017300'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Internal Token Introspection",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/internal/v1/tokens/introspect",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "internal",
+            "v1",
+            "tokens",
+            "introspect"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "let json = pm.response.json();",
+              "pm.test('active true', () => pm.expect(json.active).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Internal HMAC Signature Verification Example",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-TIMESTAMP",
+            "value": "{{x_timestamp}}"
+          },
+          {
+            "key": "X-SIGNATURE",
+            "value": "{{x_signature_service}}"
+          },
+          {
+            "key": "X-PARTNER-ID",
+            "value": "{{partner_id}}"
+          },
+          {
+            "key": "X-EXTERNAL-ID",
+            "value": "{{external_id}}"
+          },
+          {
+            "key": "CHANNEL-ID",
+            "value": "{{channel_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accountNo\": \"2000200202\",\n  \"clientId\": \"{{client_id}}\",\n  \"reqMsgId\": \"a\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/internal/v1/signatures/verify",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "internal",
+            "v1",
+            "signatures",
+            "verify"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const CryptoJS = require('crypto-js');",
+              "const now = new Date();",
+              "const pad = n => String(n).padStart(2, '0');",
+              "const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}+07:00`;",
+              "pm.environment.set('x_timestamp', ts);",
+              "pm.environment.set('external_id', String(Date.now()).slice(-12));",
+              "const method = 'POST';",
+              "const endpoint = '/internal/v1/signatures/verify';",
+              "const accessToken = pm.environment.get('access_token') || '';",
+              "const bodyObj = { accountNo: '2000200202', clientId: pm.environment.get('client_id'), reqMsgId: 'a' };",
+              "const minifiedBody = JSON.stringify(bodyObj);",
+              "const bodyHash = CryptoJS.SHA256(minifiedBody).toString(CryptoJS.enc.Hex).toLowerCase();",
+              "const stringToSign = `${method}:${endpoint}:${accessToken}:${bodyHash}:${ts}`;",
+              "const signature = CryptoJS.HmacSHA512(stringToSign, pm.environment.get('client_secret')).toString(CryptoJS.enc.Hex);",
+              "pm.environment.set('x_signature_service', signature);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "let json = pm.response.json();",
+              "pm.test('signature valid', () => pm.expect(json.valid).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/actuator/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "actuator",
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('healthy', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
