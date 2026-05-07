@@ -34,6 +34,19 @@ class SnapResponseCodeMapperTests {
                 .isEqualTo("Invalid Field Format X-TIMESTAMP");
     }
 
+    @Test
+    void resolvesUnauthorizedPublicMessageWithoutReasonPlaceholder() {
+        ResponseCodeMappingEntity mapping = new ResponseCodeMappingEntity();
+        mapping.setResponseMessage("Unauthorized. [reason]");
+
+        ResponseCodeMappingJpaRepository repository = mock(ResponseCodeMappingJpaRepository.class);
+        when(repository.findByResponseCode("4017300")).thenReturn(Optional.of(mapping));
+
+        SnapResponseCodeMapper mapper = new SnapResponseCodeMapper(provider(repository));
+
+        assertThat(mapper.resolvePublicMessage("4017300")).isEqualTo("Unauthorized");
+    }
+
     @SuppressWarnings("unchecked")
     private ObjectProvider<ResponseCodeMappingJpaRepository> provider(ResponseCodeMappingJpaRepository repository) {
         ObjectProvider<ResponseCodeMappingJpaRepository> provider = mock(ObjectProvider.class);

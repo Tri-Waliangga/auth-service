@@ -8,6 +8,8 @@ public interface ApiClientJpaRepository extends JpaRepository<ApiClientEntity, L
 
     String ACTIVE_STATUS = "ACTIVE";
 
+    Optional<ApiClientEntity> findByClientId(String clientId);
+
     Optional<ApiClientEntity> findByClientIdAndStatus(String clientId, String status);
 
     default Optional<ApiClientEntity> findActiveByClientId(String clientId) {
