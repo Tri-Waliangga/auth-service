@@ -2,6 +2,7 @@ package com.portfolio.authservice.interfaces.rest;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,15 +19,20 @@ import com.portfolio.authservice.infrastructure.persistence.repository.ResponseC
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTests {
 
     private MockMvc mockMvc;
@@ -89,7 +95,21 @@ class GlobalExceptionHandlerTests {
                 .andExpect(jsonPath("$.responseMessage").exists())
                 .andExpect(jsonPath("$.timestamp").doesNotExist())
                 .andExpect(jsonPath("$.error").doesNotExist())
-                .andExpect(jsonPath("$.path").doesNotExist());
+                .andExpect(jsonPath("$.path").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(jsonPath("$.message").doesNotExist());
+    }
+
+    @Test
+    void missingHeaderReturnsInvalidMandatoryFieldEnvelope() throws Exception {
+        mockMvc.perform(get("/required-header"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.responseCode").value("4007302"))
+                .andExpect(jsonPath("$.timestamp").doesNotExist())
+                .andExpect(jsonPath("$.error").doesNotExist())
+                .andExpect(jsonPath("$.path").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(jsonPath("$.message").doesNotExist());
     }
 
     @Test
@@ -98,6 +118,36 @@ class GlobalExceptionHandlerTests {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.responseCode").value("5007300"))
                 .andExpect(jsonPath("$.error").doesNotExist());
+    }
+
+    @Test
+    void genericExceptionReturnsGeneralErrorEnvelope() throws Exception {
+        mockMvc.perform(get("/throw/generic"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.responseCode").value("5007300"))
+                .andExpect(jsonPath("$.responseMessage").value("General Error"))
+                .andExpect(jsonPath("$.timestamp").doesNotExist())
+                .andExpect(jsonPath("$.error").doesNotExist())
+                .andExpect(jsonPath("$.path").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(jsonPath("$.message").doesNotExist());
+    }
+
+    @Test
+    void logsRequestIdAndSanitizedMetadataWithoutSensitiveValues(CapturedOutput output) throws Exception {
+        mockMvc.perform(get("/throw/generic")
+                        .requestAttr(RequestCorrelationFilter.REQUEST_ID_ATTRIBUTE, "request-id-456")
+                        .header("X-SIGNATURE", "secret-signature")
+                        .header("Authorization", "Bearer secret-token"))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(output).contains("requestId=request-id-456");
+        assertThat(output).contains("path=/throw/generic");
+        assertThat(output).contains("responseCode=5007300");
+        assertThat(output).contains("exceptionClass=java.lang.IllegalStateException");
+        assertThat(output).doesNotContain("secret-signature");
+        assertThat(output).doesNotContain("secret-token");
+        assertThat(output).doesNotContain("raw-secret-message");
     }
 
     @SuppressWarnings("unchecked")
@@ -141,6 +191,15 @@ class GlobalExceptionHandlerTests {
         @GetMapping("/throw/general")
         void general() {
             throw new SnapGeneralException("General Error", "UNEXPECTED");
+        }
+
+        @GetMapping("/throw/generic")
+        void generic() {
+            throw new IllegalStateException("raw-secret-message");
+        }
+
+        @GetMapping("/required-header")
+        void requiredHeader(@RequestHeader("X-MANDATORY") String mandatoryHeader) {
         }
 
         @PostMapping("/echo")

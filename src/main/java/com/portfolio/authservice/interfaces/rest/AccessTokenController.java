@@ -54,7 +54,7 @@ public class AccessTokenController {
                 request == null ? null : request.grantType(),
                 remoteIp(servletRequest),
                 userAgent,
-                UUID.randomUUID().toString());
+                requestId(servletRequest));
         AccessTokenB2BResponse response = tokenApplicationService.issueB2BToken(command, contentType);
         return ResponseEntity.ok()
                 .header("X-TIMESTAMP", timestamp)
@@ -68,5 +68,13 @@ public class AccessTokenController {
             return forwardedFor.split(",", 2)[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private String requestId(HttpServletRequest request) {
+        Object requestId = request.getAttribute(RequestCorrelationFilter.REQUEST_ID_ATTRIBUTE);
+        if (requestId instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        return UUID.randomUUID().toString();
     }
 }

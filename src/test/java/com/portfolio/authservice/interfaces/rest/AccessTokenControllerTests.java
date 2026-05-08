@@ -1,9 +1,12 @@
 package com.portfolio.authservice.interfaces.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -20,6 +23,7 @@ import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -52,6 +56,7 @@ class AccessTokenControllerTests {
                         Map.of()));
 
         mockMvc.perform(post("/cashup/v1.0/access-token/b2b")
+                        .requestAttr(RequestCorrelationFilter.REQUEST_ID_ATTRIBUTE, "request-id-123")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-TIMESTAMP", "2026-04-30T10:00:00+07:00")
                         .header("X-CLIENT-KEY", "sample-client-id")
@@ -69,6 +74,11 @@ class AccessTokenControllerTests {
                 .andExpect(jsonPath("$.accessToken").value("jwt-token"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value("900"));
+
+        ArgumentCaptor<TokenCommand> commandCaptor = ArgumentCaptor.forClass(TokenCommand.class);
+        verify(tokenApplicationService).issueB2BToken(commandCaptor.capture(), eq(MediaType.APPLICATION_JSON_VALUE));
+        assertThat(commandCaptor.getValue().requestId()).isEqualTo("request-id-123");
+        verifyNoMoreInteractions(tokenApplicationService);
     }
 
     @Test
