@@ -8,21 +8,16 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.application.credential.ClientCredential;
 import com.portfolio.authservice.config.JwtProperties;
-import com.portfolio.authservice.infrastructure.persistence.entity.ApiClientEntity;
-import com.portfolio.authservice.infrastructure.persistence.entity.OauthAccessTokenEntity;
 import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
-import java.security.MessageDigest;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -43,18 +38,15 @@ public class JwtTokenService {
     private static final String END_PRIVATE_KEY = "-----END PRIVATE KEY-----";
 
     private final JwtProperties jwtProperties;
-    private final OauthAccessTokenJpaRepository accessTokenRepository;
-    private final ApiClientJpaRepository apiClientRepository;
+    private final TokenMetadataService tokenMetadataService;
     private final Clock clock;
 
     public JwtTokenService(
             JwtProperties jwtProperties,
-            OauthAccessTokenJpaRepository accessTokenRepository,
-            ApiClientJpaRepository apiClientRepository,
+            TokenMetadataService tokenMetadataService,
             Clock clock) {
         this.jwtProperties = jwtProperties;
-        this.accessTokenRepository = accessTokenRepository;
-        this.apiClientRepository = apiClientRepository;
+        this.tokenMetadataService = tokenMetadataService;
         this.clock = clock;
     }
 
@@ -69,17 +61,16 @@ public class JwtTokenService {
         List<String> scopes = List.copyOf(credential.scopes());
         String scopeClaim = String.join(" ", scopes);
 
-        String accessToken = signJwt(credential, jti, issuedAt, expiresAt, scopeClaim);
-        saveTokenMetadata(credential, accessToken, jti, scopeClaim, issuedAt, expiresAt);
-
-        return new IssuedAccessToken(
-                accessToken,
+        IssuedAccessToken issuedToken = new IssuedAccessToken(
+                signJwt(credential, jti, issuedAt, expiresAt, scopeClaim),
                 TOKEN_TYPE,
                 String.valueOf(ttlSeconds),
                 jti,
                 issuedAt,
                 expiresAt,
                 scopes);
+        tokenMetadataService.saveIssuedToken(credential, issuedToken);
+        return issuedToken;
     }
 
     private String signJwt(
@@ -107,26 +98,6 @@ public class JwtTokenService {
         } catch (JOSEException exception) {
             throw new IllegalStateException("Failed to sign JWT access token", exception);
         }
-    }
-
-    private void saveTokenMetadata(
-            ClientCredential credential,
-            String accessToken,
-            String jti,
-            String scopes,
-            Instant issuedAt,
-            Instant expiresAt) {
-        ApiClientEntity apiClient = apiClientRepository.getReferenceById(credential.apiClientId());
-
-        OauthAccessTokenEntity tokenMetadata = new OauthAccessTokenEntity();
-        tokenMetadata.setApiClient(apiClient);
-        tokenMetadata.setTokenJti(jti);
-        tokenMetadata.setTokenHash(sha256Hex(accessToken));
-        tokenMetadata.setTokenType(TOKEN_TYPE);
-        tokenMetadata.setScopes(scopes);
-        tokenMetadata.setIssuedAt(issuedAt);
-        tokenMetadata.setExpiresAt(expiresAt);
-        accessTokenRepository.save(tokenMetadata);
     }
 
     private int resolveTtlSeconds(ClientCredential credential) {
@@ -161,15 +132,6 @@ public class JwtTokenService {
             return (RSAPrivateKey) KeyFactory.getInstance(RSA_KEY_FACTORY).generatePrivate(keySpec);
         } catch (IllegalArgumentException | GeneralSecurityException exception) {
             throw new IllegalStateException("JWT private key must be a valid PKCS#8 RSA PEM", exception);
-        }
-    }
-
-    private String sha256Hex(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (GeneralSecurityException exception) {
-            throw new IllegalStateException("SHA-256 digest is unavailable", exception);
         }
     }
 

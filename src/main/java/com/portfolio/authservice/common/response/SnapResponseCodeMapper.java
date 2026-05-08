@@ -16,7 +16,8 @@ public class SnapResponseCodeMapper {
             "4007300", "Bad Request",
             "4007301", "Invalid Field Format {field name}",
             "4007302", "Invalid Mandatory Field {field name}",
-            "4017300", "Unauthorized. [reason]");
+            "4017300", "Unauthorized. [reason]",
+            "5007300", "General Error");
 
     private final ObjectProvider<ResponseCodeMappingJpaRepository> repositoryProvider;
 

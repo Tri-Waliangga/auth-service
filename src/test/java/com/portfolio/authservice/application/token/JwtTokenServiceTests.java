@@ -1,55 +1,41 @@
 package com.portfolio.authservice.application.token;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.application.credential.ClientCredential;
+import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.config.JwtProperties;
-import com.portfolio.authservice.infrastructure.persistence.entity.ApiClientEntity;
-import com.portfolio.authservice.infrastructure.persistence.entity.OauthAccessTokenEntity;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.MessageDigest;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class JwtTokenServiceTests {
 
     private static final Instant NOW = Instant.parse("2026-05-07T08:00:00Z");
 
-    private OauthAccessTokenJpaRepository accessTokenRepository;
-    private ApiClientJpaRepository apiClientRepository;
-    private ApiClientEntity apiClient;
+    private TokenMetadataService tokenMetadataService;
     private KeyPair keyPair;
     private JwtTokenService service;
 
     @BeforeEach
     void setUp() throws Exception {
-        accessTokenRepository = mock(OauthAccessTokenJpaRepository.class);
-        apiClientRepository = mock(ApiClientJpaRepository.class);
-        apiClient = new ApiClientEntity();
-        ReflectionTestUtils.setField(apiClient, "id", 1L);
-        when(apiClientRepository.getReferenceById(1L)).thenReturn(apiClient);
-        when(accessTokenRepository.save(any(OauthAccessTokenEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        tokenMetadataService = mock(TokenMetadataService.class);
 
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
@@ -57,8 +43,7 @@ class JwtTokenServiceTests {
 
         service = new JwtTokenService(
                 jwtProperties(900),
-                accessTokenRepository,
-                apiClientRepository,
+                tokenMetadataService,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -88,24 +73,14 @@ class JwtTokenServiceTests {
         assertThat(signedJwt.getJWTClaimsSet().getIssueTime().toInstant()).isEqualTo(NOW);
         assertThat(signedJwt.getJWTClaimsSet().getExpirationTime().toInstant()).isEqualTo(NOW.plusSeconds(600));
 
-        ArgumentCaptor<OauthAccessTokenEntity> tokenCaptor = ArgumentCaptor.forClass(OauthAccessTokenEntity.class);
-        verify(accessTokenRepository).save(tokenCaptor.capture());
-        OauthAccessTokenEntity tokenMetadata = tokenCaptor.getValue();
-        assertThat(tokenMetadata.getApiClient()).isSameAs(apiClient);
-        assertThat(tokenMetadata.getTokenJti()).isEqualTo(issuedToken.jti());
-        assertThat(tokenMetadata.getTokenHash()).isEqualTo(sha256Hex(issuedToken.accessToken()));
-        assertThat(tokenMetadata.getTokenType()).isEqualTo("Bearer");
-        assertThat(tokenMetadata.getScopes()).isEqualTo("openid snap:auth:token");
-        assertThat(tokenMetadata.getIssuedAt()).isEqualTo(NOW);
-        assertThat(tokenMetadata.getExpiresAt()).isEqualTo(NOW.plusSeconds(600));
+        verify(tokenMetadataService).saveIssuedToken(eq(credential), eq(issuedToken));
     }
 
     @Test
     void usesConfiguredDefaultTtlWhenClientTtlIsNullOrNonPositive() {
         service = new JwtTokenService(
                 jwtProperties(1200),
-                accessTokenRepository,
-                apiClientRepository,
+                tokenMetadataService,
                 Clock.fixed(NOW, ZoneOffset.UTC));
 
         IssuedAccessToken nullTtlToken = service.issueAccessToken(credential(null));
@@ -115,6 +90,24 @@ class JwtTokenServiceTests {
         assertThat(nullTtlToken.expiresAt()).isEqualTo(NOW.plusSeconds(1200));
         assertThat(nonPositiveTtlToken.expiresIn()).isEqualTo("1200");
         assertThat(nonPositiveTtlToken.expiresAt()).isEqualTo(NOW.plusSeconds(1200));
+    }
+
+    @Test
+    void propagatesMetadataPersistenceFailureWithoutReturningToken() {
+        ClientCredential credential = credential(600);
+        TokenMetadataPersistenceException persistenceException = new TokenMetadataPersistenceException(
+                "General Error",
+                "TOKEN_METADATA_SAVE_FAILED",
+                new RuntimeException("database unavailable"));
+        doThrow(persistenceException).when(tokenMetadataService).saveIssuedToken(eq(credential), org.mockito.ArgumentMatchers.any());
+
+        assertThatThrownBy(() -> service.issueAccessToken(credential))
+                .isSameAs(persistenceException)
+                .isInstanceOfSatisfying(TokenMetadataPersistenceException.class, exception -> {
+                    assertThat(exception.getResponseCode()).isEqualTo("5007300");
+                    assertThat(exception.getResponseMessage()).isEqualTo("General Error");
+                    assertThat(exception.getReason()).isEqualTo("TOKEN_METADATA_SAVE_FAILED");
+                });
     }
 
     private ClientCredential credential(Integer tokenTtlSeconds) {
@@ -145,8 +138,4 @@ class JwtTokenServiceTests {
         return "-----BEGIN PRIVATE KEY-----\n" + encodedKey + "\n-----END PRIVATE KEY-----";
     }
 
-    private String sha256Hex(String value) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-    }
 }
