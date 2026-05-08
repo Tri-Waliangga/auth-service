@@ -66,6 +66,7 @@ public class ClientCredentialService {
         return new ClientCredential(
                 apiClient.getId(),
                 apiClient.getClientId(),
+                apiClient.getMerchant().getMerchantCode(),
                 apiClient.getChannelId(),
                 apiClient.getTokenTtlSeconds(),
                 publicKey.getPublicKeyPem(),
