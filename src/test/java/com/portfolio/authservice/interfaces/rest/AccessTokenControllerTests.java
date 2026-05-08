@@ -14,6 +14,7 @@ import com.portfolio.authservice.application.token.TokenApplicationService;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
 import com.portfolio.authservice.common.error.SnapValidationException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
+import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
 import java.util.Map;
@@ -32,9 +33,10 @@ class AccessTokenControllerTests {
     @BeforeEach
     void setUp() {
         tokenApplicationService = mock(TokenApplicationService.class);
+        SnapResponseCodeMapper responseCodeMapper = responseCodeMapper();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AccessTokenController(tokenApplicationService))
-                .setControllerAdvice(new GlobalExceptionHandler(responseCodeMapper()))
+                .setControllerAdvice(new GlobalExceptionHandler(new SnapResponseMapper(responseCodeMapper)))
                 .build();
     }
 

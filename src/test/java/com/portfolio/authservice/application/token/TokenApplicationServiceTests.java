@@ -20,6 +20,7 @@ import com.portfolio.authservice.common.error.SignatureVerificationException;
 import com.portfolio.authservice.common.error.SnapValidationException;
 import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
+import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.domain.port.SignatureVerifier;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
@@ -51,7 +52,8 @@ class TokenApplicationServiceTests {
                 signatureVerifier,
                 jwtTokenService,
                 auditService,
-                responseCodeMapper());
+                responseCodeMapper(),
+                new SnapResponseMapper(responseCodeMapper()));
     }
 
     @Test

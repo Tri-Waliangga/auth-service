@@ -3,13 +3,12 @@ package com.portfolio.authservice.application.token;
 import com.portfolio.authservice.application.audit.AuditService;
 import com.portfolio.authservice.application.command.TokenCommand;
 import com.portfolio.authservice.application.credential.ClientCredential;
-import com.portfolio.authservice.application.credential.ClientCredentialException;
 import com.portfolio.authservice.application.credential.ClientCredentialService;
 import com.portfolio.authservice.application.validation.SnapRequestValidator;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
-import com.portfolio.authservice.common.error.SnapValidationException;
-import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
+import com.portfolio.authservice.common.error.SnapException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
+import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.domain.port.SignatureVerifier;
 import com.portfolio.authservice.infrastructure.persistence.repository.ApiAuditLogJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
@@ -18,7 +17,6 @@ import com.portfolio.authservice.infrastructure.persistence.repository.ClientSco
 import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
-import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +40,7 @@ public class TokenApplicationService {
     private final JwtTokenService jwtTokenService;
     private final AuditService auditService;
     private final SnapResponseCodeMapper responseCodeMapper;
+    private final SnapResponseMapper responseMapper;
 
     public TokenApplicationService(
             SnapRequestValidator requestValidator,
@@ -49,13 +48,15 @@ public class TokenApplicationService {
             SignatureVerifier signatureVerifier,
             JwtTokenService jwtTokenService,
             AuditService auditService,
-            SnapResponseCodeMapper responseCodeMapper) {
+            SnapResponseCodeMapper responseCodeMapper,
+            SnapResponseMapper responseMapper) {
         this.requestValidator = requestValidator;
         this.clientCredentialService = clientCredentialService;
         this.signatureVerifier = signatureVerifier;
         this.jwtTokenService = jwtTokenService;
         this.auditService = auditService;
         this.responseCodeMapper = responseCodeMapper;
+        this.responseMapper = responseMapper;
     }
 
     public AccessTokenB2BResponse issueB2BToken(TokenCommand command, String contentType) {
@@ -78,13 +79,7 @@ public class TokenApplicationService {
             auditService.recordSignatureSuccess(command, apiClientId);
 
             IssuedAccessToken issuedToken = jwtTokenService.issueAccessToken(credential);
-            AccessTokenB2BResponse response = new AccessTokenB2BResponse(
-                    SUCCESS_RESPONSE_CODE,
-                    responseCodeMapper.resolveMessage(SUCCESS_RESPONSE_CODE),
-                    issuedToken.accessToken(),
-                    issuedToken.tokenType(),
-                    issuedToken.expiresIn(),
-                    Map.of());
+            AccessTokenB2BResponse response = responseMapper.accessTokenSuccess(issuedToken);
             auditService.recordApi(
                     command,
                     apiClientId,
@@ -93,16 +88,7 @@ public class TokenApplicationService {
                     response.responseMessage(),
                     latencyMs(startedAtNanos));
             return response;
-        } catch (SnapValidationException exception) {
-            auditFailure(command, apiClientId, exception.getResponseCode(), exception.getResponseMessage(), startedAtNanos);
-            throw exception;
-        } catch (ClientCredentialException exception) {
-            auditFailure(command, apiClientId, exception.getResponseCode(), exception.getResponseMessage(), startedAtNanos);
-            throw exception;
-        } catch (SignatureVerificationException exception) {
-            auditFailure(command, apiClientId, exception.getResponseCode(), exception.getResponseMessage(), startedAtNanos);
-            throw exception;
-        } catch (TokenMetadataPersistenceException exception) {
+        } catch (SnapException exception) {
             auditFailure(command, apiClientId, exception.getResponseCode(), exception.getResponseMessage(), startedAtNanos);
             throw exception;
         } catch (RuntimeException exception) {
@@ -144,18 +130,10 @@ public class TokenApplicationService {
         auditService.recordApi(
                 command,
                 apiClientId,
-                httpStatus(responseCode),
+                responseMapper.httpStatus(responseCode).value(),
                 responseCode,
                 responseMessage,
                 latencyMs(startedAtNanos));
-    }
-
-    private int httpStatus(String responseCode) {
-        try {
-            return Integer.parseInt(responseCode.substring(0, 3));
-        } catch (RuntimeException exception) {
-            return 500;
-        }
     }
 
     private long latencyMs(long startedAtNanos) {

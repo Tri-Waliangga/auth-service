@@ -1,18 +1,18 @@
 package com.portfolio.authservice.interfaces.rest;
 
-import com.portfolio.authservice.application.credential.ClientCredentialException;
-import com.portfolio.authservice.common.error.AuditPersistenceException;
-import com.portfolio.authservice.common.error.SignatureVerificationException;
-import com.portfolio.authservice.common.error.SnapValidationException;
-import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
-import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
+import com.portfolio.authservice.common.error.SnapException;
+import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.interfaces.rest.dto.SnapErrorResponse;
-import java.util.Map;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -20,60 +20,38 @@ public class GlobalExceptionHandler {
     private static final String INVALID_MANDATORY_FIELD_CODE = "4007302";
     private static final String GENERAL_ERROR_CODE = "5007300";
 
-    private final SnapResponseCodeMapper responseCodeMapper;
+    private final SnapResponseMapper responseMapper;
 
-    public GlobalExceptionHandler(SnapResponseCodeMapper responseCodeMapper) {
-        this.responseCodeMapper = responseCodeMapper;
+    public GlobalExceptionHandler(SnapResponseMapper responseMapper) {
+        this.responseMapper = responseMapper;
     }
 
-    @ExceptionHandler(SnapValidationException.class)
-    public ResponseEntity<SnapErrorResponse> handleSnapValidation(SnapValidationException exception) {
-        return error(exception.getResponseCode(), exception.getResponseMessage());
+    @ExceptionHandler(SnapException.class)
+    public ResponseEntity<SnapErrorResponse> handleSnap(SnapException exception) {
+        return responseMapper.errorResponse(exception.getResponseCode(), exception.getResponseMessage());
     }
 
-    @ExceptionHandler(ClientCredentialException.class)
-    public ResponseEntity<SnapErrorResponse> handleClientCredential(ClientCredentialException exception) {
-        return error(exception.getResponseCode(), exception.getResponseMessage());
+    @ExceptionHandler({
+            ConstraintViolationException.class,
+            HttpMessageNotReadableException.class,
+            MethodArgumentNotValidException.class,
+            MissingServletRequestParameterException.class
+    })
+    public ResponseEntity<SnapErrorResponse> handleInvalidMandatoryField() {
+        return responseMapper.errorResponse(INVALID_MANDATORY_FIELD_CODE);
     }
 
-    @ExceptionHandler(SignatureVerificationException.class)
-    public ResponseEntity<SnapErrorResponse> handleSignature(SignatureVerificationException exception) {
-        return error(exception.getResponseCode(), exception.getResponseMessage());
-    }
-
-    @ExceptionHandler(TokenMetadataPersistenceException.class)
-    public ResponseEntity<SnapErrorResponse> handleTokenMetadata(TokenMetadataPersistenceException exception) {
-        return error(exception.getResponseCode(), exception.getResponseMessage());
-    }
-
-    @ExceptionHandler(AuditPersistenceException.class)
-    public ResponseEntity<SnapErrorResponse> handleAudit(AuditPersistenceException exception) {
-        return error(exception.getResponseCode(), exception.getResponseMessage());
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<SnapErrorResponse> handleUnreadableMessage() {
-        return error(
-                INVALID_MANDATORY_FIELD_CODE,
-                responseCodeMapper.resolveMessage(INVALID_MANDATORY_FIELD_CODE, "request"));
+    @ExceptionHandler({
+            HttpRequestMethodNotSupportedException.class,
+            NoHandlerFoundException.class,
+            NoResourceFoundException.class
+    })
+    public ResponseEntity<SnapErrorResponse> handleUnsupportedFrameworkError() {
+        return responseMapper.errorResponse(GENERAL_ERROR_CODE);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<SnapErrorResponse> handleUnexpected() {
-        return error(GENERAL_ERROR_CODE, responseCodeMapper.resolvePublicMessage(GENERAL_ERROR_CODE));
-    }
-
-    private ResponseEntity<SnapErrorResponse> error(String responseCode, String responseMessage) {
-        return ResponseEntity
-                .status(httpStatus(responseCode))
-                .body(new SnapErrorResponse(responseCode, responseMessage, Map.of()));
-    }
-
-    private HttpStatus httpStatus(String responseCode) {
-        try {
-            return HttpStatus.valueOf(Integer.parseInt(responseCode.substring(0, 3)));
-        } catch (RuntimeException exception) {
-            return HttpStatus.INTERNAL_SERVER_ERROR;
-        }
+        return responseMapper.errorResponse(GENERAL_ERROR_CODE);
     }
 }
