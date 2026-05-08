@@ -44,3 +44,5 @@ auth:
     private-key: ${AUTH_JWT_PRIVATE_KEY:}
     public-key: ${AUTH_JWT_PUBLIC_KEY:}
     default-token-ttl-seconds: ${AUTH_JWT_DEFAULT_TOKEN_TTL_SECONDS:900}
+  internal:
+    api-key: ${AUTH_INTERNAL_API_KEY:}

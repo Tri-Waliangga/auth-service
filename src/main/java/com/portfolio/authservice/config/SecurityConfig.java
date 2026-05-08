@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -16,6 +17,12 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html"
     };
+
+    private final InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter;
+
+    public SecurityConfig(InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter) {
+        this.internalApiKeyAuthenticationFilter = internalApiKeyAuthenticationFilter;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -27,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/cashup/v1.0/access-token/b2b").permitAll()
                         .requestMatchers(OPENAPI_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(internalApiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

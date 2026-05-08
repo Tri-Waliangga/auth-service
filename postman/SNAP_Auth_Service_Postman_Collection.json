@@ -181,8 +181,8 @@
             "value": "application/json"
           },
           {
-            "key": "Authorization",
-            "value": "Bearer {{access_token}}"
+            "key": "X-INTERNAL-API-KEY",
+            "value": "{{internal_api_key}}"
           }
         ],
         "body": {
@@ -190,13 +190,13 @@
           "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/internal/v1/tokens/introspect",
+          "raw": "{{base_url}}/internal/v1.0/tokens/introspect",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "internal",
-            "v1",
+            "v1.0",
             "tokens",
             "introspect"
           ]
@@ -228,6 +228,10 @@
           {
             "key": "Authorization",
             "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-INTERNAL-API-KEY",
+            "value": "{{internal_api_key}}"
           },
           {
             "key": "X-TIMESTAMP",
