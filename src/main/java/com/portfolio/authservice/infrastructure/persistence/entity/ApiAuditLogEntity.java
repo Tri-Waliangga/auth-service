@@ -15,6 +15,9 @@ public class ApiAuditLogEntity extends BaseAuditEntity {
     @JoinColumn(name = "api_client_id")
     private ApiClientEntity apiClient;
 
+    @Column(name = "client_id", length = 100)
+    private String clientId;
+
     @Column(name = "request_id", nullable = false, length = 64)
     private String requestId;
 
@@ -45,6 +48,14 @@ public class ApiAuditLogEntity extends BaseAuditEntity {
 
     public void setApiClient(ApiClientEntity apiClient) {
         this.apiClient = apiClient;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
     }
 
     public String getRequestId() {

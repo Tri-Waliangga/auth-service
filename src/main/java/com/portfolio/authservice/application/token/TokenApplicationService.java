@@ -5,6 +5,7 @@ import com.portfolio.authservice.application.command.TokenCommand;
 import com.portfolio.authservice.application.credential.ClientCredential;
 import com.portfolio.authservice.application.credential.ClientCredentialService;
 import com.portfolio.authservice.application.validation.SnapRequestValidator;
+import com.portfolio.authservice.common.error.AuditPersistenceException;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
 import com.portfolio.authservice.common.error.SnapException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
@@ -17,6 +18,8 @@ import com.portfolio.authservice.infrastructure.persistence.repository.ClientSco
 import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +34,7 @@ import org.springframework.stereotype.Service;
 })
 public class TokenApplicationService {
 
-    public static final String SUCCESS_RESPONSE_CODE = "2007300";
+    private static final Logger log = LoggerFactory.getLogger(TokenApplicationService.class);
     private static final String GENERAL_ERROR_RESPONSE_CODE = "5007300";
 
     private final SnapRequestValidator requestValidator;
@@ -73,14 +76,14 @@ public class TokenApplicationService {
 
             boolean signatureValid = verifySignature(command, credential, apiClientId);
             if (!signatureValid) {
-                auditService.recordSignatureFailure(command, apiClientId, "INVALID_SIGNATURE");
+                recordSignatureFailure(command, apiClientId, "INVALID_SIGNATURE");
                 throw unauthorized("INVALID_SIGNATURE");
             }
-            auditService.recordSignatureSuccess(command, apiClientId);
+            recordSignatureSuccess(command, apiClientId);
 
             IssuedAccessToken issuedToken = jwtTokenService.issueAccessToken(credential);
             AccessTokenB2BResponse response = responseMapper.accessTokenSuccess(issuedToken);
-            auditService.recordApi(
+            recordApi(
                     command,
                     apiClientId,
                     200,
@@ -110,7 +113,7 @@ public class TokenApplicationService {
                     command.signature(),
                     credential);
         } catch (SignatureVerificationException exception) {
-            auditService.recordSignatureFailure(command, apiClientId, exception.getReason());
+            recordSignatureFailure(command, apiClientId, exception.getReason());
             throw exception;
         }
     }
@@ -127,13 +130,64 @@ public class TokenApplicationService {
             String responseCode,
             String responseMessage,
             long startedAtNanos) {
-        auditService.recordApi(
+        recordApi(
                 command,
                 apiClientId,
                 responseMapper.httpStatus(responseCode).value(),
                 responseCode,
                 responseMessage,
                 latencyMs(startedAtNanos));
+    }
+
+    private void recordSignatureSuccess(TokenCommand command, Long apiClientId) {
+        try {
+            auditService.recordSignatureSuccess(command, apiClientId);
+        } catch (AuditPersistenceException exception) {
+            logAuditFailure(command, "SIGNATURE", null, exception);
+        }
+    }
+
+    private void recordSignatureFailure(TokenCommand command, Long apiClientId, String failureReason) {
+        try {
+            auditService.recordSignatureFailure(command, apiClientId, failureReason);
+        } catch (AuditPersistenceException exception) {
+            logAuditFailure(command, "SIGNATURE", null, exception);
+        }
+    }
+
+    private void recordApi(
+            TokenCommand command,
+            Long apiClientId,
+            int httpStatus,
+            String responseCode,
+            String responseMessage,
+            long latencyMs) {
+        try {
+            auditService.recordApi(command, apiClientId, httpStatus, responseCode, responseMessage, latencyMs);
+        } catch (AuditPersistenceException exception) {
+            logAuditFailure(command, "API", responseCode, exception);
+        }
+    }
+
+    private void logAuditFailure(
+            TokenCommand command,
+            String auditType,
+            String responseCode,
+            AuditPersistenceException exception) {
+        log.warn(
+                "audit_persistence_failed requestId={} auditType={} responseCode={} exceptionClass={} reason={}",
+                safeValue(command.requestId()),
+                auditType,
+                safeValue(responseCode),
+                exception.getClass().getName(),
+                safeValue(exception.getReason()));
+    }
+
+    private String safeValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        return value.replaceAll("[^A-Za-z0-9_:\\-. ]", "_");
     }
 
     private long latencyMs(long startedAtNanos) {

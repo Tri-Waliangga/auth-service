@@ -67,6 +67,7 @@ public class AuditService {
         try {
             ApiAuditLogEntity auditLog = new ApiAuditLogEntity();
             auditLog.setApiClient(reference(apiClientId));
+            auditLog.setClientId(command.clientId());
             auditLog.setRequestId(command.requestId());
             auditLog.setEndpointPath(ACCESS_TOKEN_ENDPOINT);
             auditLog.setHttpMethod("POST");
@@ -91,6 +92,7 @@ public class AuditService {
         try {
             SignatureAuditLogEntity auditLog = new SignatureAuditLogEntity();
             auditLog.setApiClient(reference(apiClientId));
+            auditLog.setClientId(command.clientId());
             auditLog.setRequestId(command.requestId());
             auditLog.setSignatureType(AUTH_SIGNATURE_TYPE);
             auditLog.setAlgorithm(SIGNATURE_ALGORITHM);
