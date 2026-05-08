@@ -94,6 +94,51 @@ class AuditServiceTests {
     }
 
     @Test
+    void recordsInternalSignatureAuditWithHashedExplicitStringToSign() throws Exception {
+        service.recordInternalSignatureFailure(
+                1L,
+                "client-id",
+                "request-id",
+                "custom-string-to-sign",
+                "INVALID_SIGNATURE",
+                "10.10.10.10",
+                "JUnit");
+
+        ArgumentCaptor<SignatureAuditLogEntity> captor = ArgumentCaptor.forClass(SignatureAuditLogEntity.class);
+        verify(signatureAuditLogRepository).save(captor.capture());
+        SignatureAuditLogEntity auditLog = captor.getValue();
+        assertThat(auditLog.getApiClient()).isSameAs(apiClient);
+        assertThat(auditLog.getClientId()).isEqualTo("client-id");
+        assertThat(auditLog.getRequestId()).isEqualTo("request-id");
+        assertThat(auditLog.getSignatureType()).isEqualTo("INTERNAL_VERIFY");
+        assertThat(auditLog.getAlgorithm()).isEqualTo("SHA256withRSA");
+        assertThat(auditLog.getStringToSignHash()).isEqualTo(sha256Hex("custom-string-to-sign"));
+        assertThat(signatureAuditValues(auditLog)).doesNotContain("custom-string-to-sign");
+        assertThat(auditLog.getValidationResult()).isEqualTo("FAILED");
+        assertThat(auditLog.getFailureReason()).isEqualTo("INVALID_SIGNATURE");
+        assertThat(auditLog.getRemoteIp()).isEqualTo("10.10.10.10");
+        assertThat(auditLog.getUserAgent()).isEqualTo("JUnit");
+    }
+
+    @Test
+    void recordsInternalSignatureSuccessAudit() {
+        service.recordInternalSignatureSuccess(
+                1L,
+                "client-id",
+                "request-id",
+                "client-id|2026-04-30T10:00:00+07:00",
+                "10.10.10.10",
+                "JUnit");
+
+        ArgumentCaptor<SignatureAuditLogEntity> captor = ArgumentCaptor.forClass(SignatureAuditLogEntity.class);
+        verify(signatureAuditLogRepository).save(captor.capture());
+        SignatureAuditLogEntity auditLog = captor.getValue();
+        assertThat(auditLog.getSignatureType()).isEqualTo("INTERNAL_VERIFY");
+        assertThat(auditLog.getValidationResult()).isEqualTo("SUCCESS");
+        assertThat(auditLog.getFailureReason()).isNull();
+    }
+
+    @Test
     void recordsApiAudit() {
         TokenCommand command = command();
 

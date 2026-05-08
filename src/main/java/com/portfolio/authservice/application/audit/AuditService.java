@@ -29,6 +29,7 @@ public class AuditService {
     public static final String ACCESS_TOKEN_ENDPOINT = "/cashup/v1.0/access-token/b2b";
 
     private static final String AUTH_SIGNATURE_TYPE = "AUTH";
+    private static final String INTERNAL_VERIFY_SIGNATURE_TYPE = "INTERNAL_VERIFY";
     private static final String SIGNATURE_ALGORITHM = "SHA256withRSA";
     private static final String SUCCESS = "SUCCESS";
     private static final String FAILED = "FAILED";
@@ -55,6 +56,43 @@ public class AuditService {
 
     public void recordSignatureFailure(TokenCommand command, Long apiClientId, String failureReason) {
         recordSignature(command, apiClientId, FAILED, failureReason);
+    }
+
+    public void recordInternalSignatureSuccess(
+            Long apiClientId,
+            String clientId,
+            String requestId,
+            String stringToSign,
+            String remoteIp,
+            String userAgent) {
+        recordInternalSignature(
+                apiClientId,
+                clientId,
+                requestId,
+                stringToSign,
+                SUCCESS,
+                null,
+                remoteIp,
+                userAgent);
+    }
+
+    public void recordInternalSignatureFailure(
+            Long apiClientId,
+            String clientId,
+            String requestId,
+            String stringToSign,
+            String failureReason,
+            String remoteIp,
+            String userAgent) {
+        recordInternalSignature(
+                apiClientId,
+                clientId,
+                requestId,
+                stringToSign,
+                FAILED,
+                failureReason,
+                remoteIp,
+                userAgent);
     }
 
     public void recordApi(
@@ -101,6 +139,35 @@ public class AuditService {
             auditLog.setFailureReason(failureReason);
             auditLog.setRemoteIp(command.remoteIp());
             auditLog.setUserAgent(command.userAgent());
+            signatureAuditLogRepository.save(auditLog);
+        } catch (DataAccessException exception) {
+            throw generalError("SIGNATURE_AUDIT_LOG_SAVE_FAILED", exception);
+        } catch (RuntimeException exception) {
+            throw generalError("SIGNATURE_AUDIT_LOG_SAVE_FAILED", exception);
+        }
+    }
+
+    private void recordInternalSignature(
+            Long apiClientId,
+            String clientId,
+            String requestId,
+            String stringToSign,
+            String validationResult,
+            String failureReason,
+            String remoteIp,
+            String userAgent) {
+        try {
+            SignatureAuditLogEntity auditLog = new SignatureAuditLogEntity();
+            auditLog.setApiClient(reference(apiClientId));
+            auditLog.setClientId(clientId);
+            auditLog.setRequestId(requestId);
+            auditLog.setSignatureType(INTERNAL_VERIFY_SIGNATURE_TYPE);
+            auditLog.setAlgorithm(SIGNATURE_ALGORITHM);
+            auditLog.setStringToSignHash(sha256Hex(stringToSign));
+            auditLog.setValidationResult(validationResult);
+            auditLog.setFailureReason(failureReason);
+            auditLog.setRemoteIp(remoteIp);
+            auditLog.setUserAgent(userAgent);
             signatureAuditLogRepository.save(auditLog);
         } catch (DataAccessException exception) {
             throw generalError("SIGNATURE_AUDIT_LOG_SAVE_FAILED", exception);

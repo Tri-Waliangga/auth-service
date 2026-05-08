@@ -28,19 +28,28 @@ public class RsaSha256SignatureVerifier implements SignatureVerifier {
     }
 
     @Override
-    public boolean verifyAuthSignature(String clientId, String timestamp, String signatureBase64, String publicKeyPem) {
+    public boolean verifySignature(String stringToSign, String signatureBase64, String publicKeyPem) {
+        if (!StringUtils.hasText(stringToSign)) {
+            throw unauthorized("STRING_TO_SIGN_MISSING");
+        }
+
         byte[] signatureBytes = decodeSignature(signatureBase64);
         PublicKey publicKey = parsePublicKey(publicKeyPem);
-        byte[] stringToSign = buildStringToSign(clientId, timestamp).getBytes(StandardCharsets.UTF_8);
+        byte[] stringToSignBytes = stringToSign.getBytes(StandardCharsets.UTF_8);
 
         try {
             java.security.Signature verifier = java.security.Signature.getInstance(ALGORITHM);
             verifier.initVerify(publicKey);
-            verifier.update(stringToSign);
+            verifier.update(stringToSignBytes);
             return verifier.verify(signatureBytes);
         } catch (GeneralSecurityException exception) {
             throw unauthorized("SIGNATURE_VERIFICATION_FAILED");
         }
+    }
+
+    @Override
+    public boolean verifyAuthSignature(String clientId, String timestamp, String signatureBase64, String publicKeyPem) {
+        return verifySignature(buildStringToSign(clientId, timestamp), signatureBase64, publicKeyPem);
     }
 
     @Override
