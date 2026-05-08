@@ -10,6 +10,7 @@ import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
 import com.portfolio.authservice.infrastructure.persistence.entity.ApiClientEntity;
 import com.portfolio.authservice.infrastructure.persistence.entity.ClientPublicKeyEntity;
 import com.portfolio.authservice.infrastructure.persistence.entity.ClientScopeEntity;
+import com.portfolio.authservice.infrastructure.persistence.entity.MerchantEntity;
 import com.portfolio.authservice.infrastructure.persistence.entity.ResponseCodeMappingEntity;
 import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.ClientPublicKeyJpaRepository;
@@ -61,6 +62,7 @@ class ClientCredentialServiceTests {
 
         assertThat(credential.apiClientId()).isEqualTo(1L);
         assertThat(credential.clientId()).isEqualTo("client-id");
+        assertThat(credential.merchantCode()).isEqualTo("MERCHANT-001");
         assertThat(credential.channelId()).isEqualTo("95221");
         assertThat(credential.tokenTtlSeconds()).isEqualTo(900);
         assertThat(credential.publicKeyPem()).isEqualTo("public-key-pem");
@@ -161,7 +163,16 @@ class ClientCredentialServiceTests {
         client.setTokenTtlSeconds(900);
         client.setAllowedIpCidr(allowedIpCidr);
         client.setStatus("ACTIVE");
+        client.setMerchant(merchant());
         return client;
+    }
+
+    private MerchantEntity merchant() {
+        MerchantEntity merchant = new MerchantEntity();
+        merchant.setMerchantCode("MERCHANT-001");
+        merchant.setMerchantName("Merchant One");
+        merchant.setStatus("ACTIVE");
+        return merchant;
     }
 
     private ClientPublicKeyEntity publicKey() {

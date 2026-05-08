@@ -2,14 +2,17 @@ package com.portfolio.authservice.infrastructure.persistence.repository;
 
 import com.portfolio.authservice.infrastructure.persistence.entity.ApiClientEntity;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ApiClientJpaRepository extends JpaRepository<ApiClientEntity, Long> {
 
     String ACTIVE_STATUS = "ACTIVE";
 
+    @EntityGraph(attributePaths = "merchant")
     Optional<ApiClientEntity> findByClientId(String clientId);
 
+    @EntityGraph(attributePaths = "merchant")
     Optional<ApiClientEntity> findByClientIdAndStatus(String clientId, String status);
 
     default Optional<ApiClientEntity> findActiveByClientId(String clientId) {

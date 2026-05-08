@@ -37,3 +37,10 @@ springdoc:
     path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
   swagger-ui:
     path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+
+auth:
+  jwt:
+    issuer: ${AUTH_JWT_ISSUER:auth-service}
+    private-key: ${AUTH_JWT_PRIVATE_KEY:}
+    public-key: ${AUTH_JWT_PUBLIC_KEY:}
+    default-token-ttl-seconds: ${AUTH_JWT_DEFAULT_TOKEN_TTL_SECONDS:900}

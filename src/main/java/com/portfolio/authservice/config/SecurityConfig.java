@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/cashup/v1.0/access-token/b2b").permitAll()
                         .requestMatchers(OPENAPI_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
                 .build();

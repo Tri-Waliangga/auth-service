@@ -51,6 +51,7 @@ class RsaSha256SignatureVerifierTests {
         ClientCredential credential = new ClientCredential(
                 1L,
                 "client-id",
+                "MERCHANT-001",
                 "95221",
                 900,
                 publicKeyPem,
@@ -133,6 +134,7 @@ class RsaSha256SignatureVerifierTests {
         ClientCredential credential = new ClientCredential(
                 1L,
                 "client-id",
+                "MERCHANT-001",
                 "95221",
                 900,
                 publicKeyPem,
