@@ -13,6 +13,7 @@ public class SnapResponseCodeMapper {
     private static final String FIELD_NAME_PLACEHOLDER = "{field name}";
     private static final String REASON_PLACEHOLDER = "[reason]";
     private static final Map<String, String> FALLBACK_MESSAGES = Map.of(
+            "2007300", "Successful",
             "4007300", "Bad Request",
             "4007301", "Invalid Field Format {field name}",
             "4007302", "Invalid Mandatory Field {field name}",
