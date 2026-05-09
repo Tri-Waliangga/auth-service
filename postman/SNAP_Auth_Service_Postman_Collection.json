@@ -26,16 +26,16 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"privateKeyPem\": \"{{client_private_key_pem}}\"\n}"
+          "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"timestamp\": \"{{x_timestamp}}\",\n  \"privateKeyPem\": \"{{client_private_key_pem}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/api/v1/utilities/signature-auth",
+          "raw": "{{base_url}}/cashup/v1.0/utilities/signature-auth",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            "api",
-            "v1",
+            "cashup",
+            "v1.0",
             "utilities",
             "signature-auth"
           ]
