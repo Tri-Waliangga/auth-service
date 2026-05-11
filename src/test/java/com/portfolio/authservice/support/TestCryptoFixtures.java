@@ -1,7 +1,9 @@
 package com.portfolio.authservice.support;
 
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
+import java.security.Signature;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -96,6 +98,13 @@ public final class TestCryptoFixtures {
     public static RSAPublicKey publicKey() throws GeneralSecurityException {
         byte[] keyBytes = Base64.getDecoder().decode(stripPem(PUBLIC_KEY_PEM, "PUBLIC KEY"));
         return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(keyBytes));
+    }
+
+    public static String sign(String value) throws GeneralSecurityException {
+        Signature signer = Signature.getInstance("SHA256withRSA");
+        signer.initSign(privateKey());
+        signer.update(value.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(signer.sign());
     }
 
     private static String stripPem(String pem, String type) {
