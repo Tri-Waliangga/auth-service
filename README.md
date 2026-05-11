@@ -47,6 +47,37 @@ Invoke-WebRequest http://localhost:3031/v3/api-docs -UseBasicParsing
 
 The OpenAPI document includes SNAP response codes, request/response examples, internal endpoint labels, and the Actuator health check reference. Internal endpoints require `X-INTERNAL-API-KEY`. The signature generation utility is documented as `local`/`dev` only and must not be used with production private keys.
 
+## Postman Manual Flow
+
+Import these files into Postman:
+
+- `postman/SNAP_Auth_Service_Postman_Collection.json`
+- `postman/SNAP_Auth_Service_Postman_Environment.json`
+
+Run the app on port `3031` with the `local` or `dev` profile so the signature generation utility is available. The Postman `internal_api_key` value must match `AUTH_INTERNAL_API_KEY`, and Flyway seed data must be present in the database.
+
+PowerShell example:
+
+```powershell
+$env:SERVER_PORT="3031"
+$env:SPRING_PROFILES_ACTIVE="local"
+$env:AUTH_INTERNAL_API_KEY="change-this-internal-api-key"
+.\mvnw.cmd spring-boot:run
+```
+
+Select the `SNAP Auth Service - Local` environment, then run requests in this order:
+
+1. `01 - Health Check`
+2. `02 - Dev Utility - Generate Signature Auth`
+3. `03 - Access Token B2B - Positive`
+4. `04 - Access Token B2B - Negative Invalid Signature`
+5. `05 - Access Token B2B - Negative Missing X-SIGNATURE`
+6. `06 - Token Introspection - Active`
+7. `07 - Token Introspection - Expired or Invalid`
+8. `08 - Internal Signature Verify`
+
+The dev utility generates `x_timestamp` and `x_signature_auth`; the positive access-token request stores `access_token` for introspection. The private key in the Postman environment is local test material only and must not be replaced with production private key material.
+
 ## Metrics
 
 Prometheus metrics are exposed through Spring Boot Actuator:

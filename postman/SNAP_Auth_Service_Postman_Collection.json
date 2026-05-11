@@ -2,12 +2,42 @@
   "info": {
     "_postman_id": "5eb55e80-7d9b-4e8a-9d25-authsnapprd",
     "name": "SNAP Auth Service - Portfolio",
-    "description": "Collection untuk auth-service berbasis SNAP Keamanan. RSA signature untuk /access-token/b2b diisi melalui variable x_signature_auth atau endpoint dev utility.",
+    "description": "Collection untuk auth-service berbasis SNAP Keamanan. Jalankan health check, generate signature auth dev utility, access token B2B, introspection, dan internal signature verify sesuai urutan.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "01 - Dev Utility Generate Signature Auth",
+      "name": "01 - Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/actuator/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "actuator",
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('health status is UP', () => pm.expect(json.status).to.eql('UP'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Dev Utility - Generate Signature Auth",
       "request": {
         "method": "POST",
         "header": [
@@ -47,8 +77,12 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const now = new Date(); const pad = n => String(n).padStart(2,'0');",
-              "pm.environment.set('x_timestamp', `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}+07:00`);"
+              "const now = new Date(Date.now() + 7 * 60 * 60 * 1000);",
+              "const pad = value => String(value).padStart(2, '0');",
+              "const timestamp = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}+07:00`;",
+              "pm.environment.set('x_timestamp', timestamp);",
+              "pm.environment.unset('x_signature_auth');",
+              "pm.environment.unset('access_token');"
             ]
           }
         },
@@ -57,15 +91,18 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Signature generated', () => pm.response.to.have.status(200));",
-              "const json = pm.response.json(); if (json.signature) pm.environment.set('x_signature_auth', json.signature);"
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('signature generated', () => pm.expect(json.signature).to.be.a('string').and.not.empty);",
+              "pm.test('algorithm is SHA256withRSA', () => pm.expect(json.algorithm).to.eql('SHA256withRSA'));",
+              "pm.environment.set('x_signature_auth', json.signature);"
             ]
           }
         }
       ]
     },
     {
-      "name": "02 - Access Token B2B - Positive",
+      "name": "03 - Access Token B2B - Positive",
       "request": {
         "method": "POST",
         "header": [
@@ -91,13 +128,13 @@
           "raw": "{\n  \"grantType\": \"client_credentials\",\n  \"additionalInfo\": {}\n}"
         },
         "url": {
-          "raw": "{{base_url}}/api/v1/access-token/b2b",
+          "raw": "{{base_url}}/cashup/v1.0/access-token/b2b",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            "api",
-            "v1",
+            "cashup",
+            "v1.0",
             "access-token",
             "b2b"
           ]
@@ -105,21 +142,33 @@
       },
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('signature variable exists', () => pm.expect(pm.environment.get('x_signature_auth')).to.be.a('string').and.not.empty);"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "let json = pm.response.json();",
-              "pm.test('SNAP success code', () => pm.expect(json.responseCode).to.eql('2007300'));",
-              "if (json.accessToken) pm.environment.set('access_token', json.accessToken);"
+              "const json = pm.response.json();",
+              "pm.test('SNAP success code 2007300', () => pm.expect(json.responseCode).to.eql('2007300'));",
+              "pm.test('token type is Bearer', () => pm.expect(json.tokenType).to.eql('Bearer'));",
+              "pm.test('expiresIn is 900', () => pm.expect(json.expiresIn).to.eql('900'));",
+              "pm.test('access token returned', () => pm.expect(json.accessToken).to.be.a('string').and.not.empty);",
+              "pm.environment.set('access_token', json.accessToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "03 - Access Token B2B - Negative Invalid Signature",
+      "name": "04 - Access Token B2B - Negative Invalid Signature",
       "request": {
         "method": "POST",
         "header": [
@@ -145,13 +194,13 @@
           "raw": "{\n  \"grantType\": \"client_credentials\",\n  \"additionalInfo\": {}\n}"
         },
         "url": {
-          "raw": "{{base_url}}/api/v1/access-token/b2b",
+          "raw": "{{base_url}}/cashup/v1.0/access-token/b2b",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            "api",
-            "v1",
+            "cashup",
+            "v1.0",
             "access-token",
             "b2b"
           ]
@@ -163,16 +212,65 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 401 expected', () => pm.response.to.have.status(401));",
-              "let json = pm.response.json();",
-              "pm.test('Unauthorized code', () => pm.expect(json.responseCode).to.eql('4017300'));"
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const json = pm.response.json();",
+              "pm.test('SNAP unauthorized code 4017300', () => pm.expect(json.responseCode).to.eql('4017300'));"
             ]
           }
         }
       ]
     },
     {
-      "name": "04 - Internal Token Introspection",
+      "name": "05 - Access Token B2B - Negative Missing X-SIGNATURE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-TIMESTAMP",
+            "value": "{{x_timestamp}}"
+          },
+          {
+            "key": "X-CLIENT-KEY",
+            "value": "{{client_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"grantType\": \"client_credentials\",\n  \"additionalInfo\": {}\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/cashup/v1.0/access-token/b2b",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "cashup",
+            "v1.0",
+            "access-token",
+            "b2b"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const json = pm.response.json();",
+              "pm.test('SNAP invalid mandatory field code 4007302', () => pm.expect(json.responseCode).to.eql('4007302'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Token Introspection - Active",
       "request": {
         "method": "POST",
         "header": [
@@ -204,20 +302,75 @@
       },
       "event": [
         {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('access token variable exists', () => pm.expect(pm.environment.get('access_token')).to.be.a('string').and.not.empty);"
+            ]
+          }
+        },
+        {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "let json = pm.response.json();",
-              "pm.test('active true', () => pm.expect(json.active).to.eql(true));"
+              "const json = pm.response.json();",
+              "pm.test('token is active', () => pm.expect(json.active).to.eql(true));",
+              "pm.test('client id matches environment', () => pm.expect(json.clientId).to.eql(pm.environment.get('client_id')));"
             ]
           }
         }
       ]
     },
     {
-      "name": "05 - Internal HMAC Signature Verification Example",
+      "name": "07 - Token Introspection - Expired or Invalid",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-INTERNAL-API-KEY",
+            "value": "{{internal_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"not-a-valid-token\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/internal/v1.0/tokens/introspect",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "internal",
+            "v1.0",
+            "tokens",
+            "introspect"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('token is inactive', () => pm.expect(json.active).to.eql(false));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Internal Signature Verify",
       "request": {
         "method": "POST",
         "header": [
@@ -249,41 +402,23 @@
       },
       "event": [
         {
-          "listen": "test",
+          "listen": "prerequest",
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "let json = pm.response.json();",
-              "pm.test('signature valid', () => pm.expect(json.valid).to.eql(true));"
+              "pm.test('signature variable exists', () => pm.expect(pm.environment.get('x_signature_auth')).to.be.a('string').and.not.empty);"
             ]
           }
-        }
-      ]
-    },
-    {
-      "name": "06 - Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/actuator/health",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "actuator",
-            "health"
-          ]
-        }
-      },
-      "event": [
+        },
         {
           "listen": "test",
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('healthy', () => pm.response.to.have.status(200));"
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('signature is valid', () => pm.expect(json.valid).to.eql(true));",
+              "pm.test('SNAP success code 2007300', () => pm.expect(json.responseCode).to.eql('2007300'));"
             ]
           }
         }
