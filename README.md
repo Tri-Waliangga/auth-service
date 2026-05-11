@@ -36,6 +36,17 @@ Health check:
 Invoke-WebRequest http://localhost:3031/actuator/health -UseBasicParsing
 ```
 
+## API Documentation
+
+Swagger UI and the raw OpenAPI document are available locally:
+
+```powershell
+Start-Process http://localhost:3031/swagger-ui.html
+Invoke-WebRequest http://localhost:3031/v3/api-docs -UseBasicParsing
+```
+
+The OpenAPI document includes SNAP response codes, request/response examples, internal endpoint labels, and the Actuator health check reference. Internal endpoints require `X-INTERNAL-API-KEY`. The signature generation utility is documented as `local`/`dev` only and must not be used with production private keys.
+
 ## Metrics
 
 Prometheus metrics are exposed through Spring Boot Actuator:
