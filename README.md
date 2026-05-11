@@ -14,7 +14,7 @@ Copy the example environment file and adjust local credentials as needed.
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up -d
+docker compose up -d auth-mysql
 ```
 
 Set Java 21 and database credentials through environment variables before running the app.
@@ -29,6 +29,29 @@ $env:AUTH_DB_USERNAME="<mysql-username-from-env-file>"
 $env:AUTH_DB_PASSWORD="<mysql-password-from-env-file>"
 .\mvnw.cmd spring-boot:run
 ```
+
+Health check:
+
+```powershell
+Invoke-WebRequest http://localhost:3031/actuator/health -UseBasicParsing
+```
+
+## Run With Docker
+
+Build the production-like image:
+
+```powershell
+docker build -t auth-service:local .
+```
+
+Run the app and MySQL with Docker Compose:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+Compose exposes the app at `http://localhost:3031` and connects the container to MySQL through `auth-mysql:3306`. The app container runs as a non-root user. Secrets are not baked into the image; provide JWT keys, database credentials, and `AUTH_INTERNAL_API_KEY` through `.env`, CI variables, or a secret manager.
 
 Health check:
 
