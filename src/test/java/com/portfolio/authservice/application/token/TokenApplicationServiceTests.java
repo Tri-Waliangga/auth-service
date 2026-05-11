@@ -18,6 +18,7 @@ import com.portfolio.authservice.application.credential.ClientCredentialService;
 import com.portfolio.authservice.application.validation.SnapRequestValidator;
 import com.portfolio.authservice.common.error.AuditPersistenceException;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
+import com.portfolio.authservice.common.error.SnapForbiddenException;
 import com.portfolio.authservice.common.error.SnapValidationException;
 import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
@@ -30,6 +31,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 class TokenApplicationServiceTests {
 
@@ -244,6 +246,43 @@ class TokenApplicationServiceTests {
         assertThatThrownBy(() -> service.issueB2BToken(command, "application/json")).isSameAs(persistenceException);
 
         verify(auditService).recordSignatureSuccess(command, 1L);
+    }
+
+    @Test
+    void dbUnavailableDuringCredentialLookupAuditsGeneralError() {
+        TokenCommand command = command();
+        DataAccessResourceFailureException databaseException =
+                new DataAccessResourceFailureException("database unavailable");
+        when(clientCredentialService.loadActiveClientCredential("client-id", "10.10.10.10"))
+                .thenThrow(databaseException);
+
+        assertThatThrownBy(() -> service.issueB2BToken(command, "application/json")).isSameAs(databaseException);
+
+        verify(auditService).recordApi(
+                eq(command),
+                eq(null),
+                eq(500),
+                eq("5007300"),
+                eq("General Error"),
+                any(Long.class));
+        verifyNoInteractions(signatureVerifier, jwtTokenService);
+    }
+
+    @Test
+    void forbiddenScopeFailureAuditsForbiddenAndPropagates() {
+        TokenCommand command = command();
+        ClientCredential credential = credential();
+        SnapForbiddenException forbiddenException = new SnapForbiddenException("Forbidden", "FORBIDDEN_SCOPE");
+        when(clientCredentialService.loadActiveClientCredential("client-id", "10.10.10.10"))
+                .thenReturn(credential);
+        when(signatureVerifier.verifyAuthSignature("client-id", "2026-04-30T10:00:00+07:00", "signature", credential))
+                .thenReturn(true);
+        when(jwtTokenService.issueAccessToken(credential)).thenThrow(forbiddenException);
+
+        assertThatThrownBy(() -> service.issueB2BToken(command, "application/json")).isSameAs(forbiddenException);
+
+        verify(auditService).recordSignatureSuccess(command, 1L);
+        verify(auditService).recordApi(eq(command), eq(1L), eq(403), eq("4037300"), eq("Forbidden"), any(Long.class));
     }
 
     private TokenCommand command() {

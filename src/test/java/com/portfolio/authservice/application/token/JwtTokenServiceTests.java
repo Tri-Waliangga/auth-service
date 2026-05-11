@@ -13,14 +13,10 @@ import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.application.credential.ClientCredential;
 import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.config.JwtProperties;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPublicKey;
+import com.portfolio.authservice.support.TestCryptoFixtures;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,16 +26,11 @@ class JwtTokenServiceTests {
     private static final Instant NOW = Instant.parse("2026-05-07T08:00:00Z");
 
     private TokenMetadataService tokenMetadataService;
-    private KeyPair keyPair;
     private JwtTokenService service;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         tokenMetadataService = mock(TokenMetadataService.class);
-
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        keyPair = generator.generateKeyPair();
 
         service = new JwtTokenService(
                 jwtProperties(900),
@@ -62,7 +53,7 @@ class JwtTokenServiceTests {
 
         SignedJWT signedJwt = SignedJWT.parse(issuedToken.accessToken());
         assertThat(signedJwt.getHeader().getAlgorithm()).isEqualTo(JWSAlgorithm.RS256);
-        assertThat(signedJwt.verify(new RSASSAVerifier((RSAPublicKey) keyPair.getPublic()))).isTrue();
+        assertThat(signedJwt.verify(new RSASSAVerifier(TestCryptoFixtures.publicKey()))).isTrue();
         assertThat(signedJwt.getJWTClaimsSet().getJWTID()).isEqualTo(issuedToken.jti());
         assertThat(signedJwt.getJWTClaimsSet().getIssuer()).isEqualTo("auth-service-test");
         assertThat(signedJwt.getJWTClaimsSet().getSubject()).isEqualTo("client-id");
@@ -126,16 +117,10 @@ class JwtTokenServiceTests {
     private JwtProperties jwtProperties(Integer defaultTokenTtlSeconds) {
         JwtProperties properties = new JwtProperties();
         properties.setIssuer("auth-service-test");
-        properties.setPrivateKey(toPrivateKeyPem().replace("\n", "\\n"));
+        properties.setPrivateKey(TestCryptoFixtures.escapedPrivateKeyPem());
         properties.setPublicKey("unused-public-key");
         properties.setDefaultTokenTtlSeconds(defaultTokenTtlSeconds);
         return properties;
-    }
-
-    private String toPrivateKeyPem() {
-        String encodedKey = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
-                .encodeToString(keyPair.getPrivate().getEncoded());
-        return "-----BEGIN PRIVATE KEY-----\n" + encodedKey + "\n-----END PRIVATE KEY-----";
     }
 
 }

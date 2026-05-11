@@ -104,6 +104,47 @@ class AccessTokenControllerTests {
     }
 
     @Test
+    void missingSignatureHeaderReturnsSnapBadRequest() throws Exception {
+        when(tokenApplicationService.issueB2BToken(any(TokenCommand.class), eq(MediaType.APPLICATION_JSON_VALUE)))
+                .thenThrow(new SnapValidationException(
+                        "4007302",
+                        "Invalid Mandatory Field X-SIGNATURE",
+                        "Invalid mandatory field: X-SIGNATURE"));
+
+        mockMvc.perform(post("/cashup/v1.0/access-token/b2b")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-TIMESTAMP", "2026-04-30T10:00:00+07:00")
+                        .header("X-CLIENT-KEY", "sample-client-id")
+                        .content("""
+                                {
+                                  "grantType": "client_credentials",
+                                  "additionalInfo": {}
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.responseCode").value("4007302"))
+                .andExpect(jsonPath("$.responseMessage").value("Invalid Mandatory Field X-SIGNATURE"));
+    }
+
+    @Test
+    void malformedJsonReturnsSnapBadRequestOnAccessTokenEndpoint() throws Exception {
+        mockMvc.perform(post("/cashup/v1.0/access-token/b2b")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-TIMESTAMP", "2026-04-30T10:00:00+07:00")
+                        .header("X-CLIENT-KEY", "sample-client-id")
+                        .header("X-SIGNATURE", "base64-signature")
+                        .content("{bad-json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.responseCode").value("4007302"))
+                .andExpect(jsonPath("$.responseMessage").exists())
+                .andExpect(jsonPath("$.timestamp").doesNotExist())
+                .andExpect(jsonPath("$.error").doesNotExist())
+                .andExpect(jsonPath("$.path").doesNotExist())
+                .andExpect(jsonPath("$.trace").doesNotExist())
+                .andExpect(jsonPath("$.message").doesNotExist());
+    }
+
+    @Test
     void invalidSignatureReturnsUnauthorized() throws Exception {
         when(tokenApplicationService.issueB2BToken(any(TokenCommand.class), eq(MediaType.APPLICATION_JSON_VALUE)))
                 .thenThrow(new SignatureVerificationException("Unauthorized", "INVALID_SIGNATURE"));

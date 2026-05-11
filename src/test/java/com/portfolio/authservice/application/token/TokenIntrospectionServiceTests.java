@@ -12,6 +12,7 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.common.error.SnapUnauthorizedException;
+import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
 import com.portfolio.authservice.config.JwtProperties;
 import com.portfolio.authservice.infrastructure.persistence.entity.ApiClientEntity;
@@ -19,47 +20,41 @@ import com.portfolio.authservice.infrastructure.persistence.entity.OauthAccessTo
 import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.TokenIntrospectionResponse;
+import com.portfolio.authservice.support.TestCryptoFixtures;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 class TokenIntrospectionServiceTests {
 
     private static final Instant NOW = Instant.parse("2026-05-07T08:00:00Z");
 
     private OauthAccessTokenJpaRepository accessTokenRepository;
-    private KeyPair signingKeyPair;
     private TokenIntrospectionService service;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         accessTokenRepository = mock(OauthAccessTokenJpaRepository.class);
-
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        signingKeyPair = generator.generateKeyPair();
 
         service = new TokenIntrospectionService(
                 accessTokenRepository,
-                jwtProperties(signingKeyPair),
+                jwtProperties(),
                 responseCodeMapper(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
     void activeTokenReturnsMetadataBackToCaller() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
         OauthAccessTokenEntity metadata = metadata(token, NOW.plusSeconds(600));
         when(accessTokenRepository.findByTokenJti("jti-1")).thenReturn(Optional.of(metadata));
 
@@ -77,7 +72,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void expiredJwtThrowsInvalidTokenSnapError() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.minusSeconds(1), "auth-service-test");
+        String token = signedToken("jti-1", NOW.minusSeconds(1), "auth-service-test");
 
         assertThatThrownBy(() -> service.introspect(token))
                 .isInstanceOfSatisfying(SnapUnauthorizedException.class, exception -> {
@@ -90,7 +85,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void revokedTokenReturnsInactive() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
         OauthAccessTokenEntity metadata = metadata(token, NOW.plusSeconds(600));
         metadata.setRevokedAt(NOW.plusSeconds(60));
         when(accessTokenRepository.findByTokenJti("jti-1")).thenReturn(Optional.of(metadata));
@@ -100,7 +95,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void unknownJtiReturnsInactive() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
         when(accessTokenRepository.findByTokenJti("jti-1")).thenReturn(Optional.empty());
 
         assertThat(service.introspect(token).active()).isFalse();
@@ -108,11 +103,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void badSignatureReturnsInactive() throws Exception {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        KeyPair otherKeyPair = generator.generateKeyPair();
-
-        String token = signedToken(otherKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = tamperSignature(signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test"));
 
         assertThat(service.introspect(token).active()).isFalse();
         verifyNoInteractions(accessTokenRepository);
@@ -126,7 +117,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void hashMismatchReturnsInactive() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
         OauthAccessTokenEntity metadata = metadata("different-token", NOW.plusSeconds(600));
         when(accessTokenRepository.findByTokenJti("jti-1")).thenReturn(Optional.of(metadata));
 
@@ -135,7 +126,7 @@ class TokenIntrospectionServiceTests {
 
     @Test
     void expiredMetadataThrowsInvalidTokenSnapError() throws Exception {
-        String token = signedToken(signingKeyPair, "jti-1", NOW.plusSeconds(600), "auth-service-test");
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
         OauthAccessTokenEntity metadata = metadata(token, NOW.minusSeconds(1));
         when(accessTokenRepository.findByTokenJti("jti-1")).thenReturn(Optional.of(metadata));
 
@@ -146,7 +137,21 @@ class TokenIntrospectionServiceTests {
                 });
     }
 
-    private String signedToken(KeyPair keyPair, String jti, Instant expiresAt, String issuer) throws Exception {
+    @Test
+    void databaseUnavailableDuringLookupThrowsGeneralError() throws Exception {
+        String token = signedToken("jti-1", NOW.plusSeconds(600), "auth-service-test");
+        when(accessTokenRepository.findByTokenJti("jti-1"))
+                .thenThrow(new DataAccessResourceFailureException("database unavailable"));
+
+        assertThatThrownBy(() -> service.introspect(token))
+                .isInstanceOfSatisfying(TokenMetadataPersistenceException.class, exception -> {
+                    assertThat(exception.getResponseCode()).isEqualTo("5007300");
+                    assertThat(exception.getResponseMessage()).isEqualTo("General Error");
+                    assertThat(exception.getReason()).isEqualTo("TOKEN_INTROSPECTION_LOOKUP_FAILED");
+                });
+    }
+
+    private String signedToken(String jti, Instant expiresAt, String issuer) throws Exception {
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .jwtID(jti)
                 .issuer(issuer)
@@ -157,8 +162,15 @@ class TokenIntrospectionServiceTests {
                 .claim("scope", "openid snap:auth:token")
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims);
-        jwt.sign(new RSASSASigner(keyPair.getPrivate()));
+        jwt.sign(new RSASSASigner(TestCryptoFixtures.privateKey()));
         return jwt.serialize();
+    }
+
+    private String tamperSignature(String token) {
+        String[] parts = token.split("\\.");
+        parts[2] = parts[2].substring(0, parts[2].length() - 1)
+                + (parts[2].endsWith("A") ? "B" : "A");
+        return String.join(".", parts);
     }
 
     private OauthAccessTokenEntity metadata(String rawToken, Instant expiresAt) throws Exception {
@@ -176,17 +188,11 @@ class TokenIntrospectionServiceTests {
         return metadata;
     }
 
-    private JwtProperties jwtProperties(KeyPair keyPair) {
+    private JwtProperties jwtProperties() {
         JwtProperties properties = new JwtProperties();
         properties.setIssuer("auth-service-test");
-        properties.setPublicKey(toPublicKeyPem(keyPair).replace("\n", "\\n"));
+        properties.setPublicKey(TestCryptoFixtures.escapedPublicKeyPem());
         return properties;
-    }
-
-    private String toPublicKeyPem(KeyPair keyPair) {
-        String encodedKey = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
-                .encodeToString(keyPair.getPublic().getEncoded());
-        return "-----BEGIN PUBLIC KEY-----\n" + encodedKey + "\n-----END PUBLIC KEY-----";
     }
 
     private String sha256Hex(String value) throws Exception {

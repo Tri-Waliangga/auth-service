@@ -9,11 +9,7 @@ import com.portfolio.authservice.application.credential.ClientCredential;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
-import java.util.Base64;
+import com.portfolio.authservice.support.TestCryptoFixtures;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,90 +18,92 @@ import org.springframework.beans.factory.ObjectProvider;
 class RsaSha256SignatureVerifierTests {
 
     private RsaSha256SignatureVerifier verifier;
-    private KeyPair keyPair;
-    private String publicKeyPem;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         verifier = new RsaSha256SignatureVerifier(responseCodeMapper());
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        keyPair = generator.generateKeyPair();
-        publicKeyPem = toPublicKeyPem(keyPair);
     }
 
     @Test
-    void verifiesValidSignatureWithPublicKeyPem() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
-
-        boolean valid = verifier.verifyAuthSignature("client-id", timestamp, signature, publicKeyPem);
+    void verifiesValidAccessTokenB2BSignatureWithPublicKeyPem() {
+        boolean valid = verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                TestCryptoFixtures.PUBLIC_KEY_PEM);
 
         assertThat(valid).isTrue();
     }
 
     @Test
-    void verifiesValidSignatureWithExplicitStringToSign() throws Exception {
-        String stringToSign = "custom-string-to-sign";
-        String signature = sign(stringToSign, keyPair.getPrivate());
-
-        boolean valid = verifier.verifySignature(stringToSign, signature, publicKeyPem);
+    void verifiesValidSignatureWithExplicitStringToSign() {
+        boolean valid = verifier.verifySignature(
+                TestCryptoFixtures.EXPLICIT_STRING_TO_SIGN,
+                TestCryptoFixtures.EXPLICIT_SIGNATURE,
+                TestCryptoFixtures.PUBLIC_KEY_PEM);
 
         assertThat(valid).isTrue();
     }
 
     @Test
     void rejectsBlankStringToSign() {
-        assertUnauthorized(() -> verifier.verifySignature(" ", "signature", publicKeyPem));
+        assertUnauthorized(() -> verifier.verifySignature(" ", "signature", TestCryptoFixtures.PUBLIC_KEY_PEM));
     }
 
     @Test
-    void verifiesValidSignatureWithClientCredentialPublicKeyFromDatabase() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
+    void verifiesValidSignatureWithClientCredentialPublicKeyFromDatabase() {
         ClientCredential credential = new ClientCredential(
                 1L,
-                "client-id",
+                TestCryptoFixtures.CLIENT_ID,
                 "MERCHANT-001",
                 "95221",
                 900,
-                publicKeyPem,
+                TestCryptoFixtures.PUBLIC_KEY_PEM,
                 "SHA256withRSA",
                 "key-1",
                 List.of("openid"));
 
-        boolean valid = verifier.verifyAuthSignature("client-id", timestamp, signature, credential);
+        boolean valid = verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                credential);
 
         assertThat(valid).isTrue();
     }
 
     @Test
-    void parsesPublicKeyPemWithLineBreaks() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
-        String wrappedPem = publicKeyPem.replace("-----BEGIN PUBLIC KEY-----\n", "-----BEGIN PUBLIC KEY-----\r\n");
+    void parsesPublicKeyPemWithLineBreaks() {
+        String wrappedPem = TestCryptoFixtures.PUBLIC_KEY_PEM
+                .replace("-----BEGIN PUBLIC KEY-----\n", "-----BEGIN PUBLIC KEY-----\r\n");
 
-        boolean valid = verifier.verifyAuthSignature("client-id", timestamp, signature, wrappedPem);
+        boolean valid = verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                wrappedPem);
 
         assertThat(valid).isTrue();
     }
 
     @Test
-    void returnsFalseForDifferentTimestamp() throws Exception {
-        String signature = sign("client-id|2026-05-07T15:00:00+07:00", keyPair.getPrivate());
-
-        boolean valid = verifier.verifyAuthSignature("client-id", "2026-05-07T15:01:00+07:00", signature, publicKeyPem);
+    void returnsFalseForDifferentTimestamp() {
+        boolean valid = verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                "2026-05-07T15:01:00+07:00",
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                TestCryptoFixtures.PUBLIC_KEY_PEM);
 
         assertThat(valid).isFalse();
     }
 
     @Test
-    void returnsFalseForSignatureFromDifferentKey() throws Exception {
-        KeyPair otherKeyPair = generateKeyPair();
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, otherKeyPair.getPrivate());
-
-        boolean valid = verifier.verifyAuthSignature("client-id", timestamp, signature, publicKeyPem);
+    void returnsFalseForSignatureFromDifferentKey() {
+        boolean valid = verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.OTHER_KEY_AUTH_SIGNATURE,
+                TestCryptoFixtures.PUBLIC_KEY_PEM);
 
         assertThat(valid).isFalse();
     }
@@ -116,48 +114,49 @@ class RsaSha256SignatureVerifierTests {
                 "client-id",
                 "2026-05-07T15:00:00+07:00",
                 "not-base64!",
-                publicKeyPem));
+                TestCryptoFixtures.PUBLIC_KEY_PEM));
     }
 
     @Test
-    void rejectsInvalidPublicKeyPem() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
-
+    void rejectsInvalidPublicKeyPem() {
         assertUnauthorized(() -> verifier.verifyAuthSignature(
-                "client-id",
-                timestamp,
-                signature,
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
                 "-----BEGIN PUBLIC KEY-----\ninvalid\n-----END PUBLIC KEY-----"));
     }
 
     @Test
-    void rejectsMissingPublicKeyPemMarker() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
-        String pemWithoutMarkers = publicKeyPem
+    void rejectsMissingPublicKeyPemMarker() {
+        String pemWithoutMarkers = TestCryptoFixtures.PUBLIC_KEY_PEM
                 .replace("-----BEGIN PUBLIC KEY-----", "")
                 .replace("-----END PUBLIC KEY-----", "");
 
-        assertUnauthorized(() -> verifier.verifyAuthSignature("client-id", timestamp, signature, pemWithoutMarkers));
+        assertUnauthorized(() -> verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                pemWithoutMarkers));
     }
 
     @Test
-    void rejectsUnsupportedCredentialAlgorithm() throws Exception {
-        String timestamp = "2026-05-07T15:00:00+07:00";
-        String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
+    void rejectsUnsupportedCredentialAlgorithm() {
         ClientCredential credential = new ClientCredential(
                 1L,
-                "client-id",
+                TestCryptoFixtures.CLIENT_ID,
                 "MERCHANT-001",
                 "95221",
                 900,
-                publicKeyPem,
+                TestCryptoFixtures.PUBLIC_KEY_PEM,
                 "RS256",
                 "key-1",
                 List.of("openid"));
 
-        assertUnauthorized(() -> verifier.verifyAuthSignature("client-id", timestamp, signature, credential));
+        assertUnauthorized(() -> verifier.verifyAuthSignature(
+                TestCryptoFixtures.CLIENT_ID,
+                TestCryptoFixtures.TIMESTAMP,
+                TestCryptoFixtures.AUTH_SIGNATURE,
+                credential));
     }
 
     private void assertUnauthorized(ThrowingRunnable runnable) {
@@ -167,25 +166,6 @@ class RsaSha256SignatureVerifierTests {
                     assertThat(exception.getResponseMessage()).isEqualTo("Unauthorized");
                     assertThat(exception.getReason()).isNotBlank();
                 });
-    }
-
-    private KeyPair generateKeyPair() throws Exception {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        return generator.generateKeyPair();
-    }
-
-    private String sign(String value, PrivateKey privateKey) throws Exception {
-        java.security.Signature signer = java.security.Signature.getInstance("SHA256withRSA");
-        signer.initSign(privateKey);
-        signer.update(value.getBytes(StandardCharsets.UTF_8));
-        return Base64.getEncoder().encodeToString(signer.sign());
-    }
-
-    private String toPublicKeyPem(KeyPair pair) {
-        String encodedKey = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
-                .encodeToString(pair.getPublic().getEncoded());
-        return "-----BEGIN PUBLIC KEY-----\n" + encodedKey + "\n-----END PUBLIC KEY-----";
     }
 
     @SuppressWarnings("unchecked")

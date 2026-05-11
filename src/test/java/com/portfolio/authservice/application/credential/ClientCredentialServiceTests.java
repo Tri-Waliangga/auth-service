@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
@@ -69,6 +70,7 @@ class ClientCredentialServiceTests {
         assertThat(credential.publicKeyAlgorithm()).isEqualTo("SHA256withRSA");
         assertThat(credential.publicKeyId()).isEqualTo("key-1");
         assertThat(credential.scopes()).containsExactly("openid", "snap:auth:token");
+        verify(publicKeyRepository).findActivePublicKeyByClient(1L, NOW);
     }
 
     @Test
@@ -136,6 +138,16 @@ class ClientCredentialServiceTests {
         when(publicKeyRepository.findActivePublicKeyByClient(1L, NOW)).thenReturn(Optional.empty());
 
         assertCredentialFailure(ClientCredentialFailureReason.PUBLIC_KEY_UNAVAILABLE);
+    }
+
+    @Test
+    void rejectsExpiredPublicKeyWhenNoKeyIsActiveAtCurrentTime() {
+        ApiClientEntity client = activeClient("0.0.0.0/0");
+        when(apiClientRepository.findByClientId("client-id")).thenReturn(Optional.of(client));
+        when(publicKeyRepository.findActivePublicKeyByClient(1L, NOW)).thenReturn(Optional.empty());
+
+        assertCredentialFailure(ClientCredentialFailureReason.PUBLIC_KEY_UNAVAILABLE);
+        verify(publicKeyRepository).findActivePublicKeyByClient(1L, NOW);
     }
 
     @Test

@@ -9,10 +9,8 @@ import com.portfolio.authservice.common.error.SnapValidationException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.SignatureAuthGenerateResponse;
+import com.portfolio.authservice.support.TestCryptoFixtures;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,14 +20,10 @@ import org.springframework.beans.factory.ObjectProvider;
 class SignatureAuthGenerationServiceTests {
 
     private SignatureAuthGenerationService service;
-    private KeyPair keyPair;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         service = new SignatureAuthGenerationService(responseCodeMapper());
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        keyPair = generator.generateKeyPair();
     }
 
     @Test
@@ -37,13 +31,13 @@ class SignatureAuthGenerationServiceTests {
         SignatureAuthGenerateResponse response = service.generate(
                 "client-id",
                 "2026-05-10T12:00:00+07:00",
-                toPrivateKeyPem(keyPair.getPrivate()));
+                TestCryptoFixtures.PRIVATE_KEY_PEM);
 
         assertThat(response.signature()).isNotBlank();
         assertThat(response.stringToSign()).isEqualTo("client-id|2026-05-10T12:00:00+07:00");
         assertThat(response.algorithm()).isEqualTo("SHA256withRSA");
         assertThat(response.additionalInfo()).containsEntry("developmentOnly", true);
-        assertThat(verify(response.stringToSign(), response.signature(), keyPair.getPublic())).isTrue();
+        assertThat(verify(response.stringToSign(), response.signature(), TestCryptoFixtures.publicKey())).isTrue();
     }
 
     @Test
@@ -51,7 +45,7 @@ class SignatureAuthGenerationServiceTests {
         assertThatThrownBy(() -> service.generate(
                 " ",
                 "2026-05-10T12:00:00+07:00",
-                toPrivateKeyPem(keyPair.getPrivate())))
+                TestCryptoFixtures.PRIVATE_KEY_PEM))
                 .isInstanceOfSatisfying(SnapValidationException.class, exception -> {
                     assertThat(exception.getResponseCode()).isEqualTo("4007302");
                     assertThat(exception.getResponseMessage()).contains("clientId");
@@ -77,12 +71,6 @@ class SignatureAuthGenerationServiceTests {
         verifier.initVerify(publicKey);
         verifier.update(stringToSign.getBytes(StandardCharsets.UTF_8));
         return verifier.verify(Base64.getDecoder().decode(signatureBase64));
-    }
-
-    private String toPrivateKeyPem(PrivateKey privateKey) {
-        String encodedKey = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
-                .encodeToString(privateKey.getEncoded());
-        return "-----BEGIN PRIVATE KEY-----\n" + encodedKey + "\n-----END PRIVATE KEY-----";
     }
 
     @SuppressWarnings("unchecked")
