@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portfolio.authservice.application.audit.AuditService;
 import com.portfolio.authservice.application.credential.ClientCredentialService;
+import com.portfolio.authservice.application.observability.TokenMetrics;
 import com.portfolio.authservice.application.token.JwtTokenService;
 import com.portfolio.authservice.application.token.TokenApplicationService;
 import com.portfolio.authservice.application.token.TokenIntrospectionService;
@@ -349,7 +350,8 @@ class AuthServiceIntegrationIT {
                 JwtTokenService jwtTokenService,
                 AuditService auditService,
                 SnapResponseCodeMapper responseCodeMapper,
-                SnapResponseMapper responseMapper) {
+                SnapResponseMapper responseMapper,
+                TokenMetrics tokenMetrics) {
             return new TokenApplicationService(
                     requestValidator,
                     clientCredentialService,
@@ -357,7 +359,8 @@ class AuthServiceIntegrationIT {
                     jwtTokenService,
                     auditService,
                     responseCodeMapper,
-                    responseMapper);
+                    responseMapper,
+                    tokenMetrics);
         }
 
         @Bean

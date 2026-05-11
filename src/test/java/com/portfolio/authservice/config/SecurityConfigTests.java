@@ -48,8 +48,16 @@ class SecurityConfigTests {
                 "http://localhost:" + port + "/actuator/prometheus",
                 String.class);
 
-        assertThat(response.getStatusCode()).isNotIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertNoBasicAuthenticateHeader(response);
+        assertThat(response.getBody()).contains(
+                "# HELP",
+                "# TYPE",
+                "auth_token_request_success_total",
+                "auth_token_request_failure_total",
+                "auth_token_invalid_signature_total",
+                "auth_token_unauthorized_total",
+                "auth_token_request_latency_seconds");
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.portfolio.authservice.application.audit.AuditService;
 import com.portfolio.authservice.application.command.TokenCommand;
 import com.portfolio.authservice.application.credential.ClientCredential;
 import com.portfolio.authservice.application.credential.ClientCredentialService;
+import com.portfolio.authservice.application.observability.TokenMetrics;
 import com.portfolio.authservice.application.validation.SnapRequestValidator;
 import com.portfolio.authservice.common.error.AuditPersistenceException;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
@@ -18,6 +19,7 @@ import com.portfolio.authservice.infrastructure.persistence.repository.ClientSco
 import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -44,6 +46,7 @@ public class TokenApplicationService {
     private final AuditService auditService;
     private final SnapResponseCodeMapper responseCodeMapper;
     private final SnapResponseMapper responseMapper;
+    private final TokenMetrics tokenMetrics;
 
     public TokenApplicationService(
             SnapRequestValidator requestValidator,
@@ -52,7 +55,8 @@ public class TokenApplicationService {
             JwtTokenService jwtTokenService,
             AuditService auditService,
             SnapResponseCodeMapper responseCodeMapper,
-            SnapResponseMapper responseMapper) {
+            SnapResponseMapper responseMapper,
+            TokenMetrics tokenMetrics) {
         this.requestValidator = requestValidator;
         this.clientCredentialService = clientCredentialService;
         this.signatureVerifier = signatureVerifier;
@@ -60,10 +64,12 @@ public class TokenApplicationService {
         this.auditService = auditService;
         this.responseCodeMapper = responseCodeMapper;
         this.responseMapper = responseMapper;
+        this.tokenMetrics = tokenMetrics;
     }
 
     public AccessTokenB2BResponse issueB2BToken(TokenCommand command, String contentType) {
         long startedAtNanos = System.nanoTime();
+        Timer.Sample latencySample = tokenMetrics.startLatencyTimer();
         Long apiClientId = null;
 
         try {
@@ -90,11 +96,14 @@ public class TokenApplicationService {
                     response.responseCode(),
                     response.responseMessage(),
                     latencyMs(startedAtNanos));
+            tokenMetrics.recordSuccess();
             return response;
         } catch (SnapException exception) {
+            recordFailureMetrics(exception);
             auditFailure(command, apiClientId, exception.getResponseCode(), exception.getResponseMessage(), startedAtNanos);
             throw exception;
         } catch (RuntimeException exception) {
+            tokenMetrics.recordFailure();
             auditFailure(
                     command,
                     apiClientId,
@@ -102,7 +111,23 @@ public class TokenApplicationService {
                     responseCodeMapper.resolvePublicMessage(GENERAL_ERROR_RESPONSE_CODE),
                     startedAtNanos);
             throw exception;
+        } finally {
+            tokenMetrics.recordLatency(latencySample);
         }
+    }
+
+    private void recordFailureMetrics(SnapException exception) {
+        tokenMetrics.recordFailure();
+        if (exception instanceof SignatureVerificationException) {
+            tokenMetrics.recordInvalidSignature();
+        }
+        if (isUnauthorized(exception.getResponseCode())) {
+            tokenMetrics.recordUnauthorized();
+        }
+    }
+
+    private boolean isUnauthorized(String responseCode) {
+        return responseCode != null && responseCode.startsWith("401");
     }
 
     private boolean verifySignature(TokenCommand command, ClientCredential credential, Long apiClientId) {

@@ -36,6 +36,21 @@ Health check:
 Invoke-WebRequest http://localhost:3031/actuator/health -UseBasicParsing
 ```
 
+## Metrics
+
+Prometheus metrics are exposed through Spring Boot Actuator:
+
+```powershell
+Invoke-WebRequest http://localhost:3031/actuator/prometheus -UseBasicParsing
+```
+
+Custom auth metrics use safe, non-sensitive names and do not include token, signature, client secret, request id, IP, user-agent, or client-specific labels.
+
+```powershell
+(Invoke-WebRequest http://localhost:3031/actuator/prometheus -UseBasicParsing).Content |
+    Select-String "auth_token_request_success_total|auth_token_request_failure_total|auth_token_invalid_signature_total|auth_token_unauthorized_total|auth_token_request_latency_seconds"
+```
+
 ## Test
 
 ```powershell

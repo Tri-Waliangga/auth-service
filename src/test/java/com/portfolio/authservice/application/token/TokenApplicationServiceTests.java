@@ -14,7 +14,10 @@ import static org.mockito.Mockito.when;
 import com.portfolio.authservice.application.audit.AuditService;
 import com.portfolio.authservice.application.command.TokenCommand;
 import com.portfolio.authservice.application.credential.ClientCredential;
+import com.portfolio.authservice.application.credential.ClientCredentialException;
+import com.portfolio.authservice.application.credential.ClientCredentialFailureReason;
 import com.portfolio.authservice.application.credential.ClientCredentialService;
+import com.portfolio.authservice.application.observability.TokenMetrics;
 import com.portfolio.authservice.application.validation.SnapRequestValidator;
 import com.portfolio.authservice.common.error.AuditPersistenceException;
 import com.portfolio.authservice.common.error.SignatureVerificationException;
@@ -26,6 +29,7 @@ import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.domain.port.SignatureVerifier;
 import com.portfolio.authservice.infrastructure.persistence.repository.ResponseCodeMappingJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +44,7 @@ class TokenApplicationServiceTests {
     private SignatureVerifier signatureVerifier;
     private JwtTokenService jwtTokenService;
     private AuditService auditService;
+    private SimpleMeterRegistry meterRegistry;
     private TokenApplicationService service;
 
     @BeforeEach
@@ -49,6 +54,7 @@ class TokenApplicationServiceTests {
         signatureVerifier = mock(SignatureVerifier.class);
         jwtTokenService = mock(JwtTokenService.class);
         auditService = mock(AuditService.class);
+        meterRegistry = new SimpleMeterRegistry();
         service = new TokenApplicationService(
                 requestValidator,
                 clientCredentialService,
@@ -56,7 +62,8 @@ class TokenApplicationServiceTests {
                 jwtTokenService,
                 auditService,
                 responseCodeMapper(),
-                new SnapResponseMapper(responseCodeMapper()));
+                new SnapResponseMapper(responseCodeMapper()),
+                new TokenMetrics(meterRegistry));
     }
 
     @Test
@@ -80,6 +87,9 @@ class TokenApplicationServiceTests {
         verify(requestValidator).validateAccessTokenRequest(command, "application/json");
         verify(auditService).recordSignatureSuccess(command, 1L);
         verify(auditService).recordApi(eq(command), eq(1L), eq(200), eq("2007300"), eq("Successful"), any(Long.class));
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_SUCCESS)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_FAILURE)).isZero();
+        assertThat(timerCount(TokenMetrics.TOKEN_REQUEST_LATENCY)).isEqualTo(1L);
     }
 
     @Test
@@ -140,6 +150,10 @@ class TokenApplicationServiceTests {
         verify(auditService).recordSignatureFailure(command, 1L, "INVALID_SIGNATURE");
         verify(auditService).recordApi(eq(command), eq(1L), eq(401), eq("4017300"), eq("Unauthorized"), any(Long.class));
         verify(jwtTokenService, never()).issueAccessToken(any());
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_FAILURE)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_INVALID_SIGNATURE)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_UNAUTHORIZED)).isEqualTo(1.0);
+        assertThat(timerCount(TokenMetrics.TOKEN_REQUEST_LATENCY)).isEqualTo(1L);
     }
 
     @Test
@@ -183,6 +197,9 @@ class TokenApplicationServiceTests {
                 eq("Invalid Mandatory Field X-CLIENT-KEY"),
                 any(Long.class));
         verifyNoInteractions(clientCredentialService, signatureVerifier, jwtTokenService);
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_FAILURE)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_SUCCESS)).isZero();
+        assertThat(timerCount(TokenMetrics.TOKEN_REQUEST_LATENCY)).isEqualTo(1L);
     }
 
     @Test
@@ -266,6 +283,28 @@ class TokenApplicationServiceTests {
                 eq("General Error"),
                 any(Long.class));
         verifyNoInteractions(signatureVerifier, jwtTokenService);
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_FAILURE)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_UNAUTHORIZED)).isZero();
+        assertThat(timerCount(TokenMetrics.TOKEN_REQUEST_LATENCY)).isEqualTo(1L);
+    }
+
+    @Test
+    void credentialUnauthorizedFailureIncrementsFailureAndUnauthorizedMetrics() {
+        TokenCommand command = command();
+        ClientCredentialException credentialException = new ClientCredentialException(
+                "Unauthorized",
+                ClientCredentialFailureReason.CLIENT_NOT_FOUND);
+        when(clientCredentialService.loadActiveClientCredential("client-id", "10.10.10.10"))
+                .thenThrow(credentialException);
+
+        assertThatThrownBy(() -> service.issueB2BToken(command, "application/json")).isSameAs(credentialException);
+
+        verify(auditService).recordApi(eq(command), eq(null), eq(401), eq("4017300"), eq("Unauthorized"), any(Long.class));
+        verifyNoInteractions(signatureVerifier, jwtTokenService);
+        assertThat(counterCount(TokenMetrics.TOKEN_REQUEST_FAILURE)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_UNAUTHORIZED)).isEqualTo(1.0);
+        assertThat(counterCount(TokenMetrics.TOKEN_INVALID_SIGNATURE)).isZero();
+        assertThat(timerCount(TokenMetrics.TOKEN_REQUEST_LATENCY)).isEqualTo(1L);
     }
 
     @Test
@@ -329,5 +368,13 @@ class TokenApplicationServiceTests {
         ObjectProvider<ResponseCodeMappingJpaRepository> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(null);
         return new SnapResponseCodeMapper(provider);
+    }
+
+    private double counterCount(String meterName) {
+        return meterRegistry.counter(meterName).count();
+    }
+
+    private long timerCount(String meterName) {
+        return meterRegistry.timer(meterName).count();
     }
 }
