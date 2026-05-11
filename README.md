@@ -47,3 +47,9 @@ The test suite excludes live database auto-configuration so foundation checks ca
 ## Local Seed Data
 
 Flyway seeds a SNAP local merchant, API client, public key, scopes, and response code mappings for Postman testing. The matching private key in the Postman environment is for local development only; the database stores only the public key.
+
+## Development Signature Utility
+
+`POST /cashup/v1.0/utilities/signature-auth` is available only when the Spring profile is `local` or `dev`. It signs `clientId|timestamp` with a caller-supplied local/test private key to make Postman testing easier.
+
+Do not enable this endpoint in production and do not use production private keys with it. The Postman private key is local test material only.

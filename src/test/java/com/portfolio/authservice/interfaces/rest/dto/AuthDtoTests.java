@@ -40,4 +40,51 @@ class AuthDtoTests {
 
         assertThat(validator.validate(request)).isNotEmpty();
     }
+
+    @Test
+    void internalSignatureVerifyRequestCanBindPayload() throws Exception {
+        String payload = """
+                {
+                  "clientId": "client-id",
+                  "timestamp": "2026-05-07T15:00:00+07:00",
+                  "signature": "signature",
+                  "stringToSign": "custom-string-to-sign"
+                }
+                """;
+
+        InternalSignatureVerifyRequest request = objectMapper.readValue(payload, InternalSignatureVerifyRequest.class);
+
+        assertThat(request.clientId()).isEqualTo("client-id");
+        assertThat(request.timestamp()).isEqualTo("2026-05-07T15:00:00+07:00");
+        assertThat(request.signature()).isEqualTo("signature");
+        assertThat(request.stringToSign()).isEqualTo("custom-string-to-sign");
+    }
+
+    @Test
+    void internalSignatureVerifyRequestRejectsBlankSignature() {
+        InternalSignatureVerifyRequest request = new InternalSignatureVerifyRequest(
+                "client-id",
+                "2026-05-07T15:00:00+07:00",
+                " ",
+                null);
+
+        assertThat(validator.validate(request)).isNotEmpty();
+    }
+
+    @Test
+    void signatureAuthGenerateRequestCanBindPayload() throws Exception {
+        String payload = """
+                {
+                  "clientId": "client-id",
+                  "timestamp": "2026-05-10T12:00:00+07:00",
+                  "privateKeyPem": "private-key"
+                }
+                """;
+
+        SignatureAuthGenerateRequest request = objectMapper.readValue(payload, SignatureAuthGenerateRequest.class);
+
+        assertThat(request.clientId()).isEqualTo("client-id");
+        assertThat(request.timestamp()).isEqualTo("2026-05-10T12:00:00+07:00");
+        assertThat(request.privateKeyPem()).isEqualTo("private-key");
+    }
 }

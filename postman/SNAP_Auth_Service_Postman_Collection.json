@@ -26,16 +26,16 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"privateKeyPem\": \"{{client_private_key_pem}}\"\n}"
+          "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"timestamp\": \"{{x_timestamp}}\",\n  \"privateKeyPem\": \"{{client_private_key_pem}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/api/v1/utilities/signature-auth",
+          "raw": "{{base_url}}/cashup/v1.0/utilities/signature-auth",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            "api",
-            "v1",
+            "cashup",
+            "v1.0",
             "utilities",
             "signature-auth"
           ]
@@ -181,8 +181,8 @@
             "value": "application/json"
           },
           {
-            "key": "Authorization",
-            "value": "Bearer {{access_token}}"
+            "key": "X-INTERNAL-API-KEY",
+            "value": "{{internal_api_key}}"
           }
         ],
         "body": {
@@ -190,13 +190,13 @@
           "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/internal/v1/tokens/introspect",
+          "raw": "{{base_url}}/internal/v1.0/tokens/introspect",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "internal",
-            "v1",
+            "v1.0",
             "tokens",
             "introspect"
           ]
@@ -226,71 +226,28 @@
             "value": "application/json"
           },
           {
-            "key": "Authorization",
-            "value": "Bearer {{access_token}}"
-          },
-          {
-            "key": "X-TIMESTAMP",
-            "value": "{{x_timestamp}}"
-          },
-          {
-            "key": "X-SIGNATURE",
-            "value": "{{x_signature_service}}"
-          },
-          {
-            "key": "X-PARTNER-ID",
-            "value": "{{partner_id}}"
-          },
-          {
-            "key": "X-EXTERNAL-ID",
-            "value": "{{external_id}}"
-          },
-          {
-            "key": "CHANNEL-ID",
-            "value": "{{channel_id}}"
+            "key": "X-INTERNAL-API-KEY",
+            "value": "{{internal_api_key}}"
           }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"accountNo\": \"2000200202\",\n  \"clientId\": \"{{client_id}}\",\n  \"reqMsgId\": \"a\"\n}"
+          "raw": "{\n  \"clientId\": \"{{client_id}}\",\n  \"timestamp\": \"{{x_timestamp}}\",\n  \"signature\": \"{{x_signature_auth}}\",\n  \"stringToSign\": \"{{client_id}}|{{x_timestamp}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/internal/v1/signatures/verify",
+          "raw": "{{base_url}}/internal/v1.0/signatures/verify",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "internal",
-            "v1",
+            "v1.0",
             "signatures",
             "verify"
           ]
         }
       },
       "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "const CryptoJS = require('crypto-js');",
-              "const now = new Date();",
-              "const pad = n => String(n).padStart(2, '0');",
-              "const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}+07:00`;",
-              "pm.environment.set('x_timestamp', ts);",
-              "pm.environment.set('external_id', String(Date.now()).slice(-12));",
-              "const method = 'POST';",
-              "const endpoint = '/internal/v1/signatures/verify';",
-              "const accessToken = pm.environment.get('access_token') || '';",
-              "const bodyObj = { accountNo: '2000200202', clientId: pm.environment.get('client_id'), reqMsgId: 'a' };",
-              "const minifiedBody = JSON.stringify(bodyObj);",
-              "const bodyHash = CryptoJS.SHA256(minifiedBody).toString(CryptoJS.enc.Hex).toLowerCase();",
-              "const stringToSign = `${method}:${endpoint}:${accessToken}:${bodyHash}:${ts}`;",
-              "const signature = CryptoJS.HmacSHA512(stringToSign, pm.environment.get('client_secret')).toString(CryptoJS.enc.Hex);",
-              "pm.environment.set('x_signature_service', signature);"
-            ]
-          }
-        },
         {
           "listen": "test",
           "script": {

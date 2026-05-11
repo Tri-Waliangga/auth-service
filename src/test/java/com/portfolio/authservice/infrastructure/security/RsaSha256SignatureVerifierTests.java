@@ -45,6 +45,21 @@ class RsaSha256SignatureVerifierTests {
     }
 
     @Test
+    void verifiesValidSignatureWithExplicitStringToSign() throws Exception {
+        String stringToSign = "custom-string-to-sign";
+        String signature = sign(stringToSign, keyPair.getPrivate());
+
+        boolean valid = verifier.verifySignature(stringToSign, signature, publicKeyPem);
+
+        assertThat(valid).isTrue();
+    }
+
+    @Test
+    void rejectsBlankStringToSign() {
+        assertUnauthorized(() -> verifier.verifySignature(" ", "signature", publicKeyPem));
+    }
+
+    @Test
     void verifiesValidSignatureWithClientCredentialPublicKeyFromDatabase() throws Exception {
         String timestamp = "2026-05-07T15:00:00+07:00";
         String signature = sign("client-id|" + timestamp, keyPair.getPrivate());
