@@ -41,6 +41,9 @@ management:
   metrics:
     tags:
       application: ${APP_NAME:auth-service}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   api-docs:
