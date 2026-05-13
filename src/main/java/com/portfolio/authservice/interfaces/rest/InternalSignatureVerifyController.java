@@ -2,10 +2,6 @@ package com.portfolio.authservice.interfaces.rest;
 
 import com.portfolio.authservice.application.signature.InternalSignatureVerificationService;
 import com.portfolio.authservice.config.OpenApiConfig;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiAuditLogJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ClientPublicKeyJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.InternalSignatureVerifyRequest;
 import com.portfolio.authservice.interfaces.rest.dto.InternalSignatureVerifyResponse;
 import com.portfolio.authservice.interfaces.rest.dto.SnapErrorResponse;
@@ -20,7 +16,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -30,13 +25,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@ConditionalOnBean({
-        ApiAuditLogJpaRepository.class,
-        ApiClientJpaRepository.class,
-        ClientPublicKeyJpaRepository.class,
-        SignatureAuditLogJpaRepository.class,
-        InternalSignatureVerificationService.class
-})
 @Tag(name = "Internal", description = "Internal endpoints protected by X-INTERNAL-API-KEY")
 public class InternalSignatureVerifyController {
 

@@ -211,16 +211,18 @@ Run the app on port `3031` for Postman/Swagger consistency:
 ```powershell
 $env:JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot"
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
-$env:SERVER_PORT="3031"
+$env:AUTH_SERVICE_PORT="3031"
 $env:SPRING_PROFILES_ACTIVE="local"
 $env:AUTH_DB_URL="jdbc:mysql://localhost:3307/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
 $env:AUTH_DB_USERNAME="auth_user"
 $env:AUTH_DB_PASSWORD="change-this-auth-password"
 $env:AUTH_INTERNAL_API_KEY="change-this-internal-api-key"
+$env:AUTH_JWT_PRIVATE_KEY="<paste-local-test-private-key-pem>"
+$env:AUTH_JWT_PUBLIC_KEY="<paste-local-test-public-key-pem>"
 .\mvnw.cmd spring-boot:run
 ```
 
-JWT signing requires `AUTH_JWT_PRIVATE_KEY` and `AUTH_JWT_PUBLIC_KEY` at runtime. Keep those values out of Git and provide them through local environment variables or a secret source.
+JWT signing requires non-empty `AUTH_JWT_PRIVATE_KEY` and `AUTH_JWT_PUBLIC_KEY` values at runtime. Keep those values out of Git and provide them through local environment variables, local `.env`, Docker secrets, CI secrets, or a secret manager.
 
 Health check:
 
@@ -242,6 +244,8 @@ Run the app and MySQL:
 Copy-Item .env.example .env
 docker compose up --build
 ```
+
+Before starting Docker Compose, fill `.env` with non-empty `AUTH_JWT_PRIVATE_KEY` and `AUTH_JWT_PUBLIC_KEY` values. Compose marks both variables as required and fails fast when they are missing.
 
 Docker Compose exposes the app at `http://localhost:3031` and connects the container to MySQL through `auth-mysql:3306`. The runtime image runs as a non-root `app` user and does not bake secrets into the image.
 
@@ -274,6 +278,14 @@ The dev utility generates `x_timestamp` and `x_signature_auth`; the positive acc
 
 ## OpenAPI And Observability
 
+Local URLs when running with Docker Compose:
+
+| Service | URL |
+| --- | --- |
+| Auth service | `http://localhost:3031` |
+| Prometheus | `http://localhost:9090` |
+| Grafana | `http://localhost:3000` |
+
 Swagger UI:
 
 ```powershell
@@ -286,6 +298,10 @@ Prometheus metrics:
 ```powershell
 Invoke-WebRequest http://localhost:3031/actuator/prometheus -UseBasicParsing
 ```
+
+Actuator exposes `health`, `info`, `metrics`, and `prometheus` by default. Metrics include the default tag `application=auth-service`.
+
+Docker Compose starts Prometheus with `prometheus.yml`, which scrapes `/actuator/prometheus` from `auth-service:8080` inside the Compose network.
 
 Custom metrics:
 

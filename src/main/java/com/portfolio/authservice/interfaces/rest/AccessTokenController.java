@@ -2,12 +2,6 @@ package com.portfolio.authservice.interfaces.rest;
 
 import com.portfolio.authservice.application.command.TokenCommand;
 import com.portfolio.authservice.application.token.TokenApplicationService;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiAuditLogJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ClientPublicKeyJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ClientScopeJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BRequest;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
 import com.portfolio.authservice.interfaces.rest.dto.SnapErrorResponse;
@@ -22,7 +16,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,14 +25,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@ConditionalOnBean({
-        ApiAuditLogJpaRepository.class,
-        ApiClientJpaRepository.class,
-        ClientPublicKeyJpaRepository.class,
-        ClientScopeJpaRepository.class,
-        OauthAccessTokenJpaRepository.class,
-        SignatureAuditLogJpaRepository.class
-})
 @Tag(name = "Auth", description = "SNAP B2B authentication endpoints")
 public class AccessTokenController {
 

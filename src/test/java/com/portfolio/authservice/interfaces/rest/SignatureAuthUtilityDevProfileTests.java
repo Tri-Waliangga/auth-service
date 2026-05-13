@@ -3,6 +3,7 @@ package com.portfolio.authservice.interfaces.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.portfolio.authservice.application.utility.SignatureAuthGenerationService;
+import com.portfolio.authservice.support.PersistenceBackedServiceMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -15,7 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
         "auth.internal.api-key=test-internal-key"
 })
-class SignatureAuthUtilityDevProfileTests {
+class SignatureAuthUtilityDevProfileTests extends PersistenceBackedServiceMocks {
 
     @Test
     void devProfileRegistersSignatureUtility(ApplicationContext context) {

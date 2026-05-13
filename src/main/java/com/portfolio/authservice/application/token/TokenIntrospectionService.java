@@ -25,14 +25,12 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnBean(OauthAccessTokenJpaRepository.class)
 public class TokenIntrospectionService {
 
     private static final String RSA_KEY_FACTORY = "RSA";

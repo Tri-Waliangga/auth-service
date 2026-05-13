@@ -18,8 +18,8 @@ services:
       AUTH_DB_USERNAME: ${MYSQL_USER:-auth_user}
       AUTH_DB_PASSWORD: ${MYSQL_PASSWORD:-change-this-auth-password}
       AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-auth-service}
-      AUTH_JWT_PRIVATE_KEY: ${AUTH_JWT_PRIVATE_KEY:-}
-      AUTH_JWT_PUBLIC_KEY: ${AUTH_JWT_PUBLIC_KEY:-}
+      AUTH_JWT_PRIVATE_KEY: ${AUTH_JWT_PRIVATE_KEY:?AUTH_JWT_PRIVATE_KEY is required}
+      AUTH_JWT_PUBLIC_KEY: ${AUTH_JWT_PUBLIC_KEY:?AUTH_JWT_PUBLIC_KEY is required}
       AUTH_JWT_DEFAULT_TOKEN_TTL_SECONDS: ${AUTH_JWT_DEFAULT_TOKEN_TTL_SECONDS:-900}
       AUTH_INTERNAL_API_KEY: ${AUTH_INTERNAL_API_KEY:-change-this-internal-api-key}
       JAVA_OPTS: ${JAVA_OPTS:-}
@@ -44,5 +44,32 @@ services:
       retries: 10
       start_period: 30s
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: auth-prometheus
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - auth-prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: auth-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - auth-grafana-data:/var/lib/grafana
+
 volumes:
   auth-mysql-data:
+  auth-prometheus-data:
+  auth-grafana-data:

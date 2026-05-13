@@ -12,28 +12,13 @@ import com.portfolio.authservice.common.error.SnapException;
 import com.portfolio.authservice.common.response.SnapResponseCodeMapper;
 import com.portfolio.authservice.common.response.SnapResponseMapper;
 import com.portfolio.authservice.domain.port.SignatureVerifier;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiAuditLogJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ClientPublicKeyJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.ClientScopeJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.SignatureAuditLogJpaRepository;
 import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnBean({
-        ApiAuditLogJpaRepository.class,
-        ApiClientJpaRepository.class,
-        ClientPublicKeyJpaRepository.class,
-        ClientScopeJpaRepository.class,
-        OauthAccessTokenJpaRepository.class,
-        SignatureAuditLogJpaRepository.class
-})
 public class TokenApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(TokenApplicationService.class);

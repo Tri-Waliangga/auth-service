@@ -2,6 +2,7 @@ package com.portfolio.authservice.interfaces.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.portfolio.authservice.support.PersistenceBackedServiceMocks;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -28,7 +29,7 @@ import org.springframework.test.context.ActiveProfiles;
                         + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
                 "auth.internal.api-key=test-internal-key"
         })
-class SignatureAuthUtilityLocalProfileTests {
+class SignatureAuthUtilityLocalProfileTests extends PersistenceBackedServiceMocks {
 
     @LocalServerPort
     private int port;

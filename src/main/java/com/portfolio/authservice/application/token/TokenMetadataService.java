@@ -13,17 +13,12 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.util.HexFormat;
 import java.util.Optional;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnBean({
-        ApiClientJpaRepository.class,
-        OauthAccessTokenJpaRepository.class
-})
 public class TokenMetadataService {
 
     private static final String TOKEN_TYPE = "Bearer";

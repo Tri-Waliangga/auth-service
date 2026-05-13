@@ -7,9 +7,8 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.application.credential.ClientCredential;
+import com.portfolio.authservice.common.error.SnapGeneralException;
 import com.portfolio.authservice.config.JwtProperties;
-import com.portfolio.authservice.infrastructure.persistence.repository.ApiClientJpaRepository;
-import com.portfolio.authservice.infrastructure.persistence.repository.OauthAccessTokenJpaRepository;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateKey;
@@ -20,22 +19,20 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnBean({
-        ApiClientJpaRepository.class,
-        OauthAccessTokenJpaRepository.class
-})
 public class JwtTokenService {
 
     private static final String TOKEN_TYPE = "Bearer";
     private static final String RSA_KEY_FACTORY = "RSA";
     private static final String BEGIN_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----";
     private static final String END_PRIVATE_KEY = "-----END PRIVATE KEY-----";
+    private static final String GENERAL_ERROR_RESPONSE_MESSAGE = "General Error";
+    private static final String JWT_PRIVATE_KEY_CONFIGURATION_INVALID = "JWT_PRIVATE_KEY_CONFIGURATION_INVALID";
+    private static final String JWT_SIGNING_FAILED = "JWT_SIGNING_FAILED";
 
     private final JwtProperties jwtProperties;
     private final TokenMetadataService tokenMetadataService;
@@ -96,8 +93,21 @@ public class JwtTokenService {
             jwt.sign(new RSASSASigner(parsePrivateKey(jwtProperties.getPrivateKey())));
             return jwt.serialize();
         } catch (JOSEException exception) {
-            throw new IllegalStateException("Failed to sign JWT access token", exception);
+            throw new SnapGeneralException(GENERAL_ERROR_RESPONSE_MESSAGE, JWT_SIGNING_FAILED, exception);
+        } catch (IllegalStateException exception) {
+            throw new SnapGeneralException(
+                    GENERAL_ERROR_RESPONSE_MESSAGE,
+                    jwtSigningFailureReason(exception),
+                    exception);
         }
+    }
+
+    private String jwtSigningFailureReason(IllegalStateException exception) {
+        String message = exception.getMessage();
+        if (message != null && message.startsWith("JWT private key")) {
+            return JWT_PRIVATE_KEY_CONFIGURATION_INVALID;
+        }
+        return JWT_SIGNING_FAILED;
     }
 
     private int resolveTtlSeconds(ClientCredential credential) {

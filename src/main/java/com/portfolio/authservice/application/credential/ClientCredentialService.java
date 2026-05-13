@@ -9,16 +9,10 @@ import com.portfolio.authservice.infrastructure.persistence.repository.ClientPub
 import com.portfolio.authservice.infrastructure.persistence.repository.ClientScopeJpaRepository;
 import java.time.Clock;
 import java.util.List;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnBean({
-        ApiClientJpaRepository.class,
-        ClientPublicKeyJpaRepository.class,
-        ClientScopeJpaRepository.class
-})
 public class ClientCredentialService {
 
     private static final String ACTIVE_STATUS = "ACTIVE";

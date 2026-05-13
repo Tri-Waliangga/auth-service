@@ -1,11 +1,24 @@
 package com.portfolio.authservice.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
+import com.portfolio.authservice.application.audit.AuditService;
+import com.portfolio.authservice.application.credential.ClientCredentialService;
+import com.portfolio.authservice.application.signature.InternalSignatureVerificationService;
+import com.portfolio.authservice.application.token.JwtTokenService;
+import com.portfolio.authservice.application.token.TokenApplicationService;
+import com.portfolio.authservice.application.token.TokenIntrospectionService;
+import com.portfolio.authservice.application.token.TokenMetadataService;
+import com.portfolio.authservice.interfaces.rest.dto.AccessTokenB2BResponse;
+import com.portfolio.authservice.interfaces.rest.dto.TokenIntrospectionResponse;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -14,8 +27,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -31,6 +43,47 @@ class SecurityConfigTests {
     private int port;
 
     private final TestRestTemplate restTemplate = new TestRestTemplate();
+
+    @MockitoBean
+    private AuditService auditService;
+
+    @MockitoBean
+    private ClientCredentialService clientCredentialService;
+
+    @MockitoBean
+    private InternalSignatureVerificationService internalSignatureVerificationService;
+
+    @MockitoBean
+    private JwtTokenService jwtTokenService;
+
+    @MockitoBean
+    private TokenApplicationService tokenApplicationService;
+
+    @MockitoBean
+    private TokenIntrospectionService tokenIntrospectionService;
+
+    @MockitoBean
+    private TokenMetadataService tokenMetadataService;
+
+    @BeforeEach
+    void setUpMocks() {
+        when(tokenApplicationService.issueB2BToken(any(), any())).thenReturn(new AccessTokenB2BResponse(
+                "2007300",
+                "Successful",
+                "test-access-token",
+                "Bearer",
+                "900",
+                Map.of()));
+        when(tokenIntrospectionService.introspect(anyString())).thenReturn(new TokenIntrospectionResponse(
+                true,
+                "test-client-id",
+                "openid snap:auth:token",
+                "Bearer",
+                Instant.parse("2026-05-11T16:15:00Z"),
+                Instant.parse("2026-05-11T16:00:00Z"),
+                "test-client-id",
+                Map.of("jti", "test-jti")));
+    }
 
     @Test
     void actuatorHealthIsPubliclyAccessible() {
@@ -71,8 +124,9 @@ class SecurityConfigTests {
                 request,
                 String.class);
 
-        assertThat(response.getStatusCode()).isNotIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertNoBasicAuthenticateHeader(response);
+        assertThat(response.getBody()).contains("\"responseCode\":\"2007300\"");
     }
 
     @Test
@@ -134,18 +188,5 @@ class SecurityConfigTests {
         List<String> authenticateHeaders = response.getHeaders().getOrEmpty(HttpHeaders.WWW_AUTHENTICATE);
 
         assertThat(authenticateHeaders).noneMatch(value -> value.contains("Basic"));
-    }
-
-    @TestConfiguration
-    static class InternalTestControllerConfiguration {
-
-        @RestController
-        static class InternalTestController {
-
-            @PostMapping("/internal/v1.0/tokens/introspect")
-            Map<String, Object> introspect() {
-                return Map.of("active", true);
-            }
-        }
     }
 }

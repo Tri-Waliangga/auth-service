@@ -20,13 +20,13 @@ spring:
     validate-on-migrate: ${AUTH_FLYWAY_VALIDATE_ON_MIGRATE:true}
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${AUTH_SERVICE_PORT:8080}
 
 management:
   endpoints:
     web:
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,prometheus}
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus}
   endpoint:
     health:
       access: ${MANAGEMENT_ENDPOINT_HEALTH_ACCESS:unrestricted}
@@ -38,6 +38,9 @@ management:
     metrics:
       export:
         enabled: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}
+  metrics:
+    tags:
+      application: ${APP_NAME:auth-service}
 
 springdoc:
   api-docs:

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.portfolio.authservice.support.PersistenceBackedServiceMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -19,7 +20,7 @@ import org.springframework.http.ResponseEntity;
                         + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
                 "auth.internal.api-key=test-internal-key"
         })
-class OpenApiDocumentationTests {
+class OpenApiDocumentationTests extends PersistenceBackedServiceMocks {
 
     private final TestRestTemplate restTemplate = new TestRestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();

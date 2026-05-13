@@ -13,17 +13,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.HexFormat;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@ConditionalOnBean({
-        ApiAuditLogJpaRepository.class,
-        ApiClientJpaRepository.class,
-        SignatureAuditLogJpaRepository.class
-})
 public class AuditService {
 
     public static final String ACCESS_TOKEN_ENDPOINT = "/cashup/v1.0/access-token/b2b";

@@ -43,9 +43,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -73,6 +78,9 @@ class AuthServiceIntegrationIT {
 
     private MockMvc mockMvc;
 
+    @LocalServerPort
+    private int port;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -90,6 +98,8 @@ class AuthServiceIntegrationIT {
 
     @Autowired
     private RequestCorrelationFilter requestCorrelationFilter;
+
+    private final TestRestTemplate restTemplate = new TestRestTemplate();
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
@@ -267,6 +277,35 @@ class AuthServiceIntegrationIT {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    void accessTokenRouteIsRegisteredInRealApplicationContext() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                "http://localhost:" + port + ACCESS_TOKEN_PATH,
+                new HttpEntity<>("{}", headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("\"responseCode\":\"4007302\"");
+    }
+
+    @Test
+    void tokenIntrospectionRouteIsRegisteredInRealApplicationContext() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-INTERNAL-API-KEY", INTERNAL_API_KEY);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                "http://localhost:" + port + INTROSPECTION_PATH,
+                new HttpEntity<>("{}", headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("\"responseCode\":\"4007302\"");
     }
 
     private String currentSnapTimestamp() {

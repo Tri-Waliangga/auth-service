@@ -3,6 +3,7 @@ package com.portfolio.authservice.interfaces.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.portfolio.authservice.application.utility.SignatureAuthGenerationService;
+import com.portfolio.authservice.support.PersistenceBackedServiceMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -26,7 +27,7 @@ import org.springframework.test.context.ActiveProfiles;
                 "AUTH_JWT_PUBLIC_KEY=test-public-key",
                 "AUTH_INTERNAL_API_KEY=test-internal-key"
         })
-class SignatureAuthUtilityProdProfileTests {
+class SignatureAuthUtilityProdProfileTests extends PersistenceBackedServiceMocks {
 
     @LocalServerPort
     private int port;

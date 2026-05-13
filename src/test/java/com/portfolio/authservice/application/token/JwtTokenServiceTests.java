@@ -11,6 +11,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import com.portfolio.authservice.application.credential.ClientCredential;
+import com.portfolio.authservice.common.error.SnapGeneralException;
 import com.portfolio.authservice.common.error.TokenMetadataPersistenceException;
 import com.portfolio.authservice.config.JwtProperties;
 import com.portfolio.authservice.support.TestCryptoFixtures;
@@ -98,6 +99,23 @@ class JwtTokenServiceTests {
                     assertThat(exception.getResponseCode()).isEqualTo("5007300");
                     assertThat(exception.getResponseMessage()).isEqualTo("General Error");
                     assertThat(exception.getReason()).isEqualTo("TOKEN_METADATA_SAVE_FAILED");
+                });
+    }
+
+    @Test
+    void missingJwtPrivateKeyReturnsSnapGeneralErrorWithSafeReason() {
+        JwtProperties properties = jwtProperties(900);
+        properties.setPrivateKey("");
+        service = new JwtTokenService(
+                properties,
+                tokenMetadataService,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        assertThatThrownBy(() -> service.issueAccessToken(credential(600)))
+                .isInstanceOfSatisfying(SnapGeneralException.class, exception -> {
+                    assertThat(exception.getResponseCode()).isEqualTo("5007300");
+                    assertThat(exception.getResponseMessage()).isEqualTo("General Error");
+                    assertThat(exception.getReason()).isEqualTo("JWT_PRIVATE_KEY_CONFIGURATION_INVALID");
                 });
     }
 

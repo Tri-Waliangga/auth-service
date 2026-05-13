@@ -1,5 +1,6 @@
 package com.portfolio.authservice;
 
+import com.portfolio.authservice.support.PersistenceBackedServiceMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -8,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
                 + "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
-class AuthServiceApplicationTests {
+class AuthServiceApplicationTests extends PersistenceBackedServiceMocks {
 
     @Test
     void contextLoads() {
